@@ -20,19 +20,27 @@ export async function processUserInput(input: string): Promise<{
       {
         role: "system",
         content: `You are an AI tutor specializing in programming and English. 
+        When users request visualizations, diagrams, or ask about visual concepts,
+        always generate an image to help explain the concept.
+
         Respond in the following JSON format:
         {
           "type": "code" | "image" | "text",
           "content": "your response text here",
           "language": "programming language (for code only)",
-          "imagePrompt": "image generation prompt (for image only)"
+          "imagePrompt": "detailed image generation prompt (for image only)"
         }
 
         Guidelines:
         - For programming questions: set type="code", include code in content, specify language
-        - For visual concepts: set type="image", include description in content, provide imagePrompt
+        - For visual concepts or when visualization would help: set type="image", include explanation in content, provide detailed imagePrompt
         - For other questions: set type="text", provide explanation in content
-        - Keep responses concise and focused`
+        - Keep responses concise and focused
+
+        For image generation:
+        - Create detailed, clear prompts that specify style, composition, and important details
+        - Focus on educational diagrams and visual explanations
+        - Avoid abstract or artistic interpretations unless specifically requested`
       },
       { role: "user", content: input }
     ],
@@ -72,6 +80,10 @@ export async function processUserInput(input: string): Promise<{
         n: 1,
         size: "1024x1024"
       });
+
+      if (!image.data[0].url) {
+        throw new Error("Failed to generate image");
+      }
 
       return {
         ...output,
