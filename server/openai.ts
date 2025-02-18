@@ -20,10 +20,19 @@ export async function processUserInput(input: string): Promise<{
       {
         role: "system",
         content: `You are an AI tutor specializing in programming and English. 
-          If the user asks a programming question, provide code examples.
-          If they ask about visual concepts, suggest generating an image.
-          Otherwise, provide a text explanation.
-          Format response as JSON with fields: type (code|image|text), content, language (for code), imagePrompt (for images)`
+        Respond in the following JSON format:
+        {
+          "type": "code" | "image" | "text",
+          "content": "your response text here",
+          "language": "programming language (for code only)",
+          "imagePrompt": "image generation prompt (for image only)"
+        }
+
+        Guidelines:
+        - For programming questions: set type="code", include code in content, specify language
+        - For visual concepts: set type="image", include description in content, provide imagePrompt
+        - For other questions: set type="text", provide explanation in content
+        - Keep responses concise and focused`
       },
       { role: "user", content: input }
     ],
@@ -35,36 +44,45 @@ export async function processUserInput(input: string): Promise<{
     throw new Error("No response from OpenAI");
   }
 
-  const result = JSON.parse(content);
+  try {
+    const result = JSON.parse(content);
 
-  let output = {
-    response: result.content,
-    type: result.type as "code" | "image" | "text"
-  };
+    if (!result.type || !result.content || 
+        !["code", "image", "text"].includes(result.type)) {
+      throw new Error("Invalid response format from OpenAI");
+    }
 
-  if (result.type === "code") {
-    return {
-      ...output,
-      codeSnippet: result.content,
-      language: result.language
+    let output = {
+      response: result.content,
+      type: result.type as "code" | "image" | "text"
     };
+
+    if (result.type === "code" && result.language) {
+      return {
+        ...output,
+        codeSnippet: result.content,
+        language: result.language
+      };
+    }
+
+    if (result.type === "image" && result.imagePrompt) {
+      const image = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: result.imagePrompt,
+        n: 1,
+        size: "1024x1024"
+      });
+
+      return {
+        ...output,
+        imageUrl: image.data[0].url
+      };
+    }
+
+    return output;
+  } catch (error) {
+    throw new Error(`Failed to parse OpenAI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-
-  if (result.type === "image") {
-    const image = await openai.images.generate({
-      model: "dall-e-3",
-      prompt: result.imagePrompt,
-      n: 1,
-      size: "1024x1024"
-    });
-
-    return {
-      ...output,
-      imageUrl: image.data[0].url
-    };
-  }
-
-  return output;
 }
 
 export async function textToSpeech(text: string): Promise<ArrayBuffer> {
