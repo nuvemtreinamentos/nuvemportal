@@ -21,7 +21,9 @@ export class MemStorage implements IStorage {
       id,
       userInput: conv.userInput,
       aiResponse: conv.aiResponse,
-      metadata: conv.metadata,
+      metadata: conv.metadata ?? {
+        type: "text"
+      },
       timestamp: conv.timestamp
     };
     this.conversations.set(id, conversation);

@@ -8,11 +8,16 @@ import { Scroll } from "lucide-react";
 export default function Home() {
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState<{
-    text: string;
-    type: "code" | "image" | "text";
-    codeSnippet?: string;
-    language?: string;
-    imageUrl?: string;
+    id: number;
+    userInput: string;
+    aiResponse: string;
+    metadata: {
+      type: "code" | "image" | "text";
+      codeSnippet?: string;
+      language?: string;
+      imageUrl?: string;
+    };
+    timestamp: string;
   } | null>(null);
 
   return (
@@ -36,7 +41,7 @@ export default function Home() {
           <Card>
             <CardHeader className="flex flex-row items-center gap-2">
               <Scroll className="h-5 w-5" />
-              <CardTitle className="text-lg">Your Question</CardTitle>
+              <CardTitle className="text-lg">Sua Pergunta</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">{transcript}</p>
@@ -46,22 +51,22 @@ export default function Home() {
 
         {response && (
           <>
-            {response.type === "code" && response.codeSnippet && (
+            {response.metadata.type === "code" && response.metadata.codeSnippet && (
               <CodeDisplay
-                code={response.codeSnippet}
-                language={response.language || "text"}
+                code={response.metadata.codeSnippet}
+                language={response.metadata.language || "text"}
               />
             )}
-            {response.type === "image" && response.imageUrl && (
+            {response.metadata.type === "image" && response.metadata.imageUrl && (
               <ImageDisplay
-                imageUrl={response.imageUrl}
-                alt="AI generated visual explanation"
+                imageUrl={response.metadata.imageUrl}
+                alt="Explicação visual gerada por IA"
               />
             )}
-            {response.type === "text" && (
+            {response.metadata.type === "text" && (
               <Card>
                 <CardContent className="pt-6">
-                  <p className="text-muted-foreground">{response.text}</p>
+                  <p className="text-muted-foreground">{response.aiResponse}</p>
                 </CardContent>
               </Card>
             )}
