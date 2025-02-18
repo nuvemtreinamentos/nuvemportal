@@ -7,6 +7,7 @@ interface SpeechRecognition extends EventTarget {
   start: () => void;
   stop: () => void;
   abort: () => void;
+  lang: string; // Add language property
 }
 
 interface SpeechRecognitionEvent {
@@ -39,20 +40,22 @@ export class SpeechHandler {
       this.recognition = new SpeechRecognitionConstructor();
       this.recognition.continuous = false;
       this.recognition.interimResults = true;
+      this.recognition.lang = 'pt-BR'; // Set language to Brazilian Portuguese
     }
 
     if ('speechSynthesis' in window) {
       this.synthesis = new SpeechSynthesisUtterance();
+      this.synthesis.lang = 'pt-BR'; // Set synthesis language to Brazilian Portuguese
     }
   }
 
   async startListening(): Promise<string> {
     if (!this.recognition) {
-      throw new Error('Speech recognition not supported');
+      throw new Error('Reconhecimento de voz não suportado');
     }
 
     if (this.isListening) {
-      throw new Error('Already listening');
+      throw new Error('Já está escutando');
     }
 
     return new Promise((resolve, reject) => {
@@ -72,20 +75,20 @@ export class SpeechHandler {
       this.recognition.onend = () => {
         this.isListening = false;
         if (!hasReceivedResult) {
-          reject(new Error('No speech detected. Please try again.'));
+          reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
         } else if (finalTranscript) {
           resolve(finalTranscript);
         } else {
-          reject(new Error('Could not process speech. Please try again.'));
+          reject(new Error('Não foi possível processar a fala. Por favor, tente novamente.'));
         }
       };
 
       this.recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         this.isListening = false;
         if (event.error === 'no-speech') {
-          reject(new Error('No speech detected. Please try again.'));
+          reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
         } else {
-          reject(new Error(`Speech recognition error: ${event.error}`));
+          reject(new Error(`Erro no reconhecimento de voz: ${event.error}`));
         }
       };
 
@@ -103,7 +106,7 @@ export class SpeechHandler {
 
   async speak(text: string) {
     if (!this.synthesis) {
-      throw new Error('Speech synthesis not supported');
+      throw new Error('Síntese de voz não suportada');
     }
 
     const response = await fetch('/api/speech', {

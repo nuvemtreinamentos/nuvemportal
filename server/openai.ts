@@ -19,28 +19,29 @@ export async function processUserInput(input: string): Promise<{
     messages: [
       {
         role: "system",
-        content: `You are an AI tutor specializing in programming and English. 
-        When users request visualizations, diagrams, or ask about visual concepts,
-        always generate an image to help explain the concept.
+        content: `Você é um tutor de IA especializado em programação e inglês.
+        Responda sempre em português do Brasil.
+        Quando os usuários solicitarem visualizações, diagramas ou perguntarem sobre conceitos visuais,
+        sempre gere uma imagem para ajudar a explicar o conceito.
 
-        Respond in the following JSON format:
+        Responda no seguinte formato JSON:
         {
           "type": "code" | "image" | "text",
-          "content": "your response text here",
-          "language": "programming language (for code only)",
-          "imagePrompt": "detailed image generation prompt (for image only)"
+          "content": "sua resposta aqui",
+          "language": "linguagem de programação (apenas para código)",
+          "imagePrompt": "prompt detalhado para geração de imagem (apenas para imagem)"
         }
 
-        Guidelines:
-        - For programming questions: set type="code", include code in content, specify language
-        - For visual concepts or when visualization would help: set type="image", include explanation in content, provide detailed imagePrompt
-        - For other questions: set type="text", provide explanation in content
-        - Keep responses concise and focused
+        Diretrizes:
+        - Para perguntas de programação: type="code", inclua o código em content, especifique a language
+        - Para conceitos visuais ou quando uma visualização ajudaria: type="image", inclua explicação em content, forneça imagePrompt detalhado
+        - Para outras perguntas: type="text", forneça explicação em content
+        - Mantenha as respostas concisas e focadas
 
-        For image generation:
-        - Create detailed, clear prompts that specify style, composition, and important details
-        - Focus on educational diagrams and visual explanations
-        - Avoid abstract or artistic interpretations unless specifically requested`
+        Para geração de imagens:
+        - Crie prompts detalhados e claros que especifiquem estilo, composição e detalhes importantes
+        - Foque em diagramas educacionais e explicações visuais
+        - Evite interpretações abstratas ou artísticas, a menos que especificamente solicitado`
       },
       { role: "user", content: input }
     ],
@@ -49,7 +50,7 @@ export async function processUserInput(input: string): Promise<{
 
   const content = response.choices[0].message.content;
   if (!content) {
-    throw new Error("No response from OpenAI");
+    throw new Error("Sem resposta da OpenAI");
   }
 
   try {
@@ -57,7 +58,7 @@ export async function processUserInput(input: string): Promise<{
 
     if (!result.type || !result.content || 
         !["code", "image", "text"].includes(result.type)) {
-      throw new Error("Invalid response format from OpenAI");
+      throw new Error("Formato de resposta inválido da OpenAI");
     }
 
     let output = {
@@ -82,7 +83,7 @@ export async function processUserInput(input: string): Promise<{
       });
 
       if (!image.data[0].url) {
-        throw new Error("Failed to generate image");
+        throw new Error("Falha ao gerar imagem");
       }
 
       return {
@@ -93,7 +94,7 @@ export async function processUserInput(input: string): Promise<{
 
     return output;
   } catch (error) {
-    throw new Error(`Failed to parse OpenAI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(`Falha ao processar resposta da OpenAI: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
   }
 }
 
@@ -102,6 +103,7 @@ export async function textToSpeech(text: string): Promise<ArrayBuffer> {
     model: "tts-1",
     voice: "alloy",
     input: text,
+    language: "pt", // Set language to Portuguese
   });
 
   return await response.arrayBuffer();

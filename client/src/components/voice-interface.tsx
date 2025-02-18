@@ -32,7 +32,7 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`Erro HTTP! status: ${response.status}`);
       }
 
       const result = await response.json();
@@ -42,9 +42,9 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
       // Use the aiResponse directly for speech
       await speechHandler.speak(result.aiResponse);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido';
       toast({
-        title: "Error",
+        title: "Erro",
         description: errorMessage,
         variant: "destructive"
       });
@@ -73,23 +73,23 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
             {isProcessing ? (
               <>
                 <Speaker className="mr-2 h-4 w-4 animate-pulse" />
-                Processing...
+                Processando...
               </>
             ) : isRecording ? (
               <>
                 <StopCircle className="mr-2 h-4 w-4" />
-                Stop Recording
+                Parar Gravação
               </>
             ) : (
               <>
                 <Mic className="mr-2 h-4 w-4" />
-                Start Recording
+                Iniciar Gravação
               </>
             )}
           </Button>
           {isRecording && (
             <p className="text-sm text-muted-foreground animate-pulse">
-              Listening... Speak now
+              Ouvindo... Fale agora
             </p>
           )}
         </div>
