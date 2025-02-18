@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mic, Speaker } from "lucide-react";
+import { Mic, Speaker, StopCircle } from "lucide-react";
 import { audioRecorder } from "@/lib/audio-recorder";
 import { speechHandler } from "@/lib/speech";
 import { useToast } from "@/hooks/use-toast";
@@ -19,23 +19,10 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
   const handleStartRecording = async () => {
     try {
       setIsRecording(true);
-      await audioRecorder.startRecording();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to start recording: " + error.message,
-        variant: "destructive"
-      });
-      setIsRecording(false);
-    }
-  };
-
-  const handleStopRecording = async () => {
-    try {
+      const transcript = await speechHandler.startListening();
       setIsRecording(false);
       setIsProcessing(true);
-      
-      const transcript = await speechHandler.startListening();
+
       onTranscript(transcript);
 
       const response = await fetch("/api/chat", {
@@ -44,33 +31,50 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
         body: JSON.stringify({ userInput: transcript })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
       onResponse(result.aiResponse);
       await speechHandler.speak(result.aiResponse);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast({
         title: "Error",
-        description: "Failed to process audio: " + error.message,
+        description: errorMessage,
         variant: "destructive"
       });
+      setIsRecording(false);
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const handleStopRecording = () => {
+    speechHandler.stopListening();
+    setIsRecording(false);
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardContent className="pt-6">
-        <div className="flex justify-center gap-4">
+        <div className="flex flex-col items-center gap-4">
           <Button
             size="lg"
             variant={isRecording ? "destructive" : "default"}
             onClick={isRecording ? handleStopRecording : handleStartRecording}
             disabled={isProcessing}
+            className="min-w-[200px]"
           >
-            {isRecording ? (
+            {isProcessing ? (
               <>
-                <Speaker className="mr-2 h-4 w-4" />
+                <Speaker className="mr-2 h-4 w-4 animate-pulse" />
+                Processing...
+              </>
+            ) : isRecording ? (
+              <>
+                <StopCircle className="mr-2 h-4 w-4" />
                 Stop Recording
               </>
             ) : (
@@ -80,6 +84,11 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
               </>
             )}
           </Button>
+          {isRecording && (
+            <p className="text-sm text-muted-foreground animate-pulse">
+              Listening... Speak now
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>
