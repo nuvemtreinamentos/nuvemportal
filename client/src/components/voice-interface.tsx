@@ -36,7 +36,10 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
       }
 
       const result = await response.json();
-      onResponse(result.aiResponse);
+      // Pass the entire response object to the parent component
+      onResponse(JSON.stringify(result));
+
+      // Use the aiResponse directly for speech
       await speechHandler.speak(result.aiResponse);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
