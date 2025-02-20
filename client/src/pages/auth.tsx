@@ -2,23 +2,23 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useEffect } from "react";
 
 export default function AuthPage() {
   const { loginMutation, registerMutation, user } = useAuth();
   const [, setLocation] = useLocation();
 
   // Redirect if already logged in
-  if (user) {
-    setLocation("/");
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
 
   const loginForm = useForm({
     defaultValues: {
@@ -66,8 +66,10 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel>Usuário</FormLabel>
                           <FormControl>
-                            <Input
+                            <input
                               {...field}
+                              type="text"
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={loginMutation.isPending}
                             />
                           </FormControl>
@@ -82,9 +84,10 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel>Senha</FormLabel>
                           <FormControl>
-                            <Input
+                            <input
                               {...field}
                               type="password"
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={loginMutation.isPending}
                             />
                           </FormControl>
@@ -121,8 +124,10 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel>Usuário</FormLabel>
                           <FormControl>
-                            <Input
+                            <input
                               {...field}
+                              type="text"
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={registerMutation.isPending}
                             />
                           </FormControl>
@@ -137,9 +142,10 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel>Senha</FormLabel>
                           <FormControl>
-                            <Input
+                            <input
                               {...field}
                               type="password"
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={registerMutation.isPending}
                             />
                           </FormControl>

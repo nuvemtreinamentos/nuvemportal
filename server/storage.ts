@@ -58,14 +58,21 @@ export class MemStorage implements IStorage {
   }
 
   async addConversation(conv: InsertConversation): Promise<Conversation> {
+    if (!conv.userId) {
+      throw new Error("userId is required for conversations");
+    }
+
     const id = this.currentConvId++;
     const conversation: Conversation = {
       id,
       userId: conv.userId,
       userInput: conv.userInput,
       aiResponse: conv.aiResponse,
-      metadata: conv.metadata ?? {
-        type: "text"
+      metadata: {
+        type: conv.metadata?.type || "text",
+        ...(conv.metadata?.codeSnippet && { codeSnippet: conv.metadata.codeSnippet }),
+        ...(conv.metadata?.language && { language: conv.metadata.language }),
+        ...(conv.metadata?.imageUrl && { imageUrl: conv.metadata.imageUrl })
       },
       timestamp: conv.timestamp
     };
