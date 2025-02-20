@@ -5,6 +5,7 @@ import { Mic, Speaker, StopCircle } from "lucide-react";
 import { audioRecorder } from "@/lib/audio-recorder";
 import { speechHandler } from "@/lib/speech";
 import { useToast } from "@/hooks/use-toast";
+import { LoadingIndicator } from "./loading-indicator";
 
 interface VoiceInterfaceProps {
   onTranscript: (text: string) => void;
@@ -25,6 +26,7 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
 
       onTranscript(transcript);
 
+      // Start the API request
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -36,11 +38,19 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
       }
 
       const result = await response.json();
-      // Pass the entire response object to the parent component
-      onResponse(JSON.stringify(result));
 
-      // Use the aiResponse directly for speech
-      await speechHandler.speak(result.aiResponse);
+      // Start speaking immediately after getting the response
+      speechHandler.speak(result.aiResponse).catch((error) => {
+        console.error("Error in speech:", error);
+        toast({
+          title: "Erro na fala",
+          description: "Não foi possível reproduzir a resposta em áudio",
+          variant: "destructive"
+        });
+      });
+
+      // Update the UI with the full response after starting speech
+      onResponse(JSON.stringify(result));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido';
       toast({
@@ -72,7 +82,7 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
           >
             {isProcessing ? (
               <>
-                <Speaker className="mr-2 h-4 w-4 animate-pulse" />
+                <Speaker className="mr-2 h-4 w-4" />
                 Processando...
               </>
             ) : isRecording ? (
@@ -92,6 +102,7 @@ export function VoiceInterface({ onTranscript, onResponse }: VoiceInterfaceProps
               Ouvindo... Fale agora
             </p>
           )}
+          {isProcessing && <LoadingIndicator />}
         </div>
       </CardContent>
     </Card>
