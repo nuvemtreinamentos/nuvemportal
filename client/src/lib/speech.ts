@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -9,28 +7,17 @@ interface SpeechRecognition extends EventTarget {
   start: () => void;
   stop: () => void;
   abort: () => void;
-  lang: string;
+  lang: string; // Add language property
 }
 
 interface SpeechRecognitionEvent {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionResultList {
-  [index: number]: SpeechRecognitionResult;
-  length: number;
-}
-
-interface SpeechRecognitionResult {
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal: boolean;
-  length: number;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
 }
 
 interface SpeechRecognitionErrorEvent {
@@ -46,13 +33,6 @@ export class SpeechHandler {
   recognition: SpeechRecognition | null = null;
   synthesis: SpeechSynthesisUtterance | null = null;
   private isListening: boolean = false;
-  private isPlaying: boolean = false;
-  private lastSpeechTime: number = 0;
-  private silenceTimer: NodeJS.Timeout | null = null;
-  private currentAudio: HTMLAudioElement | null = null;
-  private nextAudio: HTMLAudioElement | null = null;
-  private finalTranscript: string = '';
-  private interimTranscript: string = '';
 
   constructor() {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -60,58 +40,13 @@ export class SpeechHandler {
       this.recognition = new SpeechRecognitionConstructor();
       this.recognition.continuous = false;
       this.recognition.interimResults = true;
-      this.recognition.lang = 'pt-BR';
+      this.recognition.lang = 'pt-BR'; // Set language to Brazilian Portuguese
     }
 
     if ('speechSynthesis' in window) {
       this.synthesis = new SpeechSynthesisUtterance();
-      this.synthesis.lang = 'pt-BR';
+      this.synthesis.lang = 'pt-BR'; // Set synthesis language to Brazilian Portuguese
     }
-  }
-
-  private splitIntoSentences(text: string): string[] {
-    return text
-      .split(/([.!?]+)/)
-      .reduce((acc: string[], current, index, array) => {
-        if (index % 2 === 0) {
-          if (array[index + 1]) {
-            acc.push(current + array[index + 1]);
-          } else if (current.trim()) {
-            acc.push(current);
-          }
-        }
-        return acc;
-      }, [])
-      .filter(sentence => sentence.trim().length > 0);
-  }
-
-  private async prepareAudioFromText(text: string): Promise<HTMLAudioElement> {
-    const response = await fetch('/api/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-
-    const audioBlob = await response.blob();
-    const audio = new Audio(URL.createObjectURL(audioBlob));
-    return audio;
-  }
-
-  private resetSilenceTimer(resolve: (transcript: string) => void, reject: (error: Error) => void) {
-    if (this.silenceTimer) {
-      clearTimeout(this.silenceTimer);
-    }
-
-    this.silenceTimer = setTimeout(() => {
-      if (Date.now() - this.lastSpeechTime > 2000) {
-        this.stopListening();
-        if (this.finalTranscript) {
-          resolve(this.finalTranscript);
-        } else {
-          reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
-        }
-      }
-    }, 2000);
   }
 
   async startListening(): Promise<string> {
@@ -126,25 +61,26 @@ export class SpeechHandler {
     return new Promise((resolve, reject) => {
       if (!this.recognition) return;
 
-      this.finalTranscript = '';
-      this.interimTranscript = '';
-      this.lastSpeechTime = Date.now();
+      let finalTranscript = '';
+      let hasReceivedResult = false;
 
       this.recognition.onresult = (event: SpeechRecognitionEvent) => {
-        this.lastSpeechTime = Date.now();
-        this.interimTranscript = '';
-
-        const results = event.results;
-        for (let i = event.resultIndex; i < results.length; i++) {
-          const result = results[i];
-          if (result.isFinal) {
-            this.finalTranscript += result[0].transcript;
-          } else {
-            this.interimTranscript += result[0].transcript;
-          }
+        hasReceivedResult = true;
+        const transcript = event.results[0][0].transcript;
+        if (event.results[0].isFinal) {
+          finalTranscript = transcript;
         }
+      };
 
-        this.resetSilenceTimer(resolve, reject);
+      this.recognition.onend = () => {
+        this.isListening = false;
+        if (!hasReceivedResult) {
+          reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
+        } else if (finalTranscript) {
+          resolve(finalTranscript);
+        } else {
+          reject(new Error('Não foi possível processar a fala. Por favor, tente novamente.'));
+        }
       };
 
       this.recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -156,85 +92,32 @@ export class SpeechHandler {
         }
       };
 
-      this.recognition.onend = () => {
-        this.isListening = false;
-        if (this.silenceTimer) {
-          clearTimeout(this.silenceTimer);
-        }
-        if (this.finalTranscript) {
-          resolve(this.finalTranscript);
-        } else {
-          reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
-        }
-      };
-
       this.isListening = true;
       this.recognition.start();
 
+      // Set a timeout to stop listening after 10 seconds if no speech is detected
       setTimeout(() => {
         if (this.isListening && this.recognition) {
-          this.stopListening();
-          if (this.finalTranscript) {
-            resolve(this.finalTranscript);
-          }
+          this.recognition.stop();
         }
-      }, 30000);
+      }, 10000);
     });
   }
 
   async speak(text: string) {
-    if (this.isPlaying) {
-      console.log('Already playing, queuing next sentence...');
-      return;
+    if (!this.synthesis) {
+      throw new Error('Síntese de voz não suportada');
     }
 
-    const sentences = this.splitIntoSentences(text);
-    this.isPlaying = true;
+    const response = await fetch('/api/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
 
-    try {
-      for (let i = 0; i < sentences.length; i++) {
-        const sentence = sentences[i];
-        if (!sentence.trim()) continue;
-
-        // Prepare current audio
-        this.currentAudio = await this.prepareAudioFromText(sentence);
-
-        // Pre-load next audio if available
-        if (i < sentences.length - 1) {
-          this.nextAudio = await this.prepareAudioFromText(sentences[i + 1]);
-        } else {
-          this.nextAudio = null;
-        }
-
-        // Play current audio and set up overlap with next audio
-        await new Promise<void>((resolve) => {
-          if (!this.currentAudio) return resolve();
-
-          this.currentAudio.onplay = () => {
-            if (this.nextAudio && this.currentAudio) {
-              // Start next audio 500ms before current ends
-              const timeUntilNext = (this.currentAudio.duration * 1000) - 500;
-              setTimeout(() => {
-                this.nextAudio?.play().catch(console.error);
-              }, timeUntilNext);
-            }
-          };
-
-          this.currentAudio.onended = () => {
-            resolve();
-          };
-
-          this.currentAudio.play().catch(console.error);
-        });
-      }
-    } catch (error) {
-      console.error('Error in sequential speech:', error);
-      throw error;
-    } finally {
-      this.isPlaying = false;
-      this.currentAudio = null;
-      this.nextAudio = null;
-    }
+    const audioBlob = await response.blob();
+    const audio = new Audio(URL.createObjectURL(audioBlob));
+    await audio.play();
   }
 
   stopListening() {
