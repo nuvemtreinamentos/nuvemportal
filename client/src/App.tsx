@@ -8,15 +8,19 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import AuthPage from "@/pages/auth";
 import BillingPage from "@/pages/billing";
+import { Navbar } from "@/components/ui/navbar";
 
 function Router() {
   return (
-    <Switch>
-      <ProtectedRoute path="/" component={Home} />
-      <ProtectedRoute path="/billing" component={BillingPage} />
-      <Route path="/auth" component={AuthPage} />
-      <Route component={NotFound} />
-    </Switch>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <Switch>
+        <ProtectedRoute path="/" component={Home} />
+        <ProtectedRoute path="/billing" component={BillingPage} />
+        <Route path="/auth" component={AuthPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </div>
   );
 }
 
