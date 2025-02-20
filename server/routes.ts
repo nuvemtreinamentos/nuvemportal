@@ -4,9 +4,21 @@ import { storage } from "./storage";
 import { processUserInput, textToSpeech } from "./openai";
 import { insertConversationSchema } from "@shared/schema";
 import { z } from "zod";
+import { setupAuth } from "./auth";
 
 export async function registerRoutes(app: Express) {
-  app.post("/api/chat", async (req: Request, res: Response) => {
+  // Set up authentication routes
+  setupAuth(app);
+
+  // Middleware to check authentication
+  const requireAuth = (req: Request, res: Response, next: Function) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    next();
+  };
+
+  app.post("/api/chat", requireAuth, async (req: Request, res: Response) => {
     try {
       const { userInput } = req.body;
       const result = await processUserInput(userInput);
@@ -20,7 +32,8 @@ export async function registerRoutes(app: Express) {
           language: result.language,
           imageUrl: result.imageUrl
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        userId: req.user!.id
       });
 
       res.json(conversation);
@@ -30,7 +43,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/speech", async (req: Request, res: Response) => {
+  app.post("/api/speech", requireAuth, async (req: Request, res: Response) => {
     try {
       const { text } = req.body;
       const audioBuffer = await textToSpeech(text);
