@@ -37,6 +37,8 @@ export class SpeechHandler {
   private isPlaying: boolean = false;
   private lastSpeechTime: number = 0;
   private silenceTimer: NodeJS.Timeout | null = null;
+  private currentAudio: HTMLAudioElement | null = null;
+  private nextAudio: HTMLAudioElement | null = null;
 
   constructor() {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -67,6 +69,18 @@ export class SpeechHandler {
         return acc;
       }, [])
       .filter(sentence => sentence.trim().length > 0);
+  }
+
+  private async prepareAudioFromText(text: string): Promise<HTMLAudioElement> {
+    const response = await fetch('/api/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+
+    const audioBlob = await response.blob();
+    const audio = new Audio(URL.createObjectURL(audioBlob));
+    return audio;
   }
 
   private resetSilenceTimer(resolve: (transcript: string) => void, reject: (error: Error) => void) {
@@ -110,7 +124,7 @@ export class SpeechHandler {
         this.interimTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
+          if (event.results[i][0].isFinal) {
             this.finalTranscript += event.results[i][0].transcript;
           } else {
             this.interimTranscript += event.results[i][0].transcript;
@@ -142,13 +156,12 @@ export class SpeechHandler {
       this.isListening = true;
       this.recognition.start();
 
-      // Set a longer timeout for maximum recording duration
       setTimeout(() => {
         if (this.isListening && this.recognition) {
           this.stopListening();
           resolve(this.finalTranscript);
         }
-      }, 30000); // 30 seconds maximum recording time
+      }, 30000);
     });
   }
 
@@ -162,28 +175,48 @@ export class SpeechHandler {
     this.isPlaying = true;
 
     try {
-      for (const sentence of sentences) {
-        if (sentence.trim()) {
-          const response = await fetch('/api/speech', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: sentence })
-          });
+      for (let i = 0; i < sentences.length; i++) {
+        const sentence = sentences[i];
+        if (!sentence.trim()) continue;
 
-          const audioBlob = await response.blob();
-          const audio = new Audio(URL.createObjectURL(audioBlob));
+        // Prepare current audio
+        this.currentAudio = await this.prepareAudioFromText(sentence);
 
-          await new Promise<void>((resolve) => {
-            audio.onended = () => resolve();
-            audio.play().catch(console.error);
-          });
+        // Pre-load next audio if available
+        if (i < sentences.length - 1) {
+          this.nextAudio = await this.prepareAudioFromText(sentences[i + 1]);
+        } else {
+          this.nextAudio = null;
         }
+
+        // Play current audio and set up overlap with next audio
+        await new Promise<void>((resolve) => {
+          if (!this.currentAudio) return resolve();
+
+          this.currentAudio.onplay = () => {
+            if (this.nextAudio && this.currentAudio) {
+              // Start next audio 500ms before current ends
+              const timeUntilNext = (this.currentAudio.duration * 1000) - 500;
+              setTimeout(() => {
+                this.nextAudio?.play().catch(console.error);
+              }, timeUntilNext);
+            }
+          };
+
+          this.currentAudio.onended = () => {
+            resolve();
+          };
+
+          this.currentAudio.play().catch(console.error);
+        });
       }
     } catch (error) {
       console.error('Error in sequential speech:', error);
       throw error;
     } finally {
       this.isPlaying = false;
+      this.currentAudio = null;
+      this.nextAudio = null;
     }
   }
 
