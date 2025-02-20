@@ -7,7 +7,7 @@ interface SpeechRecognition extends EventTarget {
   start: () => void;
   stop: () => void;
   abort: () => void;
-  lang: string; // Add language property
+  lang: string;
 }
 
 interface SpeechRecognitionEvent {
@@ -33,6 +33,7 @@ export class SpeechHandler {
   recognition: SpeechRecognition | null = null;
   synthesis: SpeechSynthesisUtterance | null = null;
   private isListening: boolean = false;
+  private isPlaying: boolean = false;
 
   constructor() {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
@@ -40,13 +41,32 @@ export class SpeechHandler {
       this.recognition = new SpeechRecognitionConstructor();
       this.recognition.continuous = false;
       this.recognition.interimResults = true;
-      this.recognition.lang = 'pt-BR'; // Set language to Brazilian Portuguese
+      this.recognition.lang = 'pt-BR';
     }
 
     if ('speechSynthesis' in window) {
       this.synthesis = new SpeechSynthesisUtterance();
-      this.synthesis.lang = 'pt-BR'; // Set synthesis language to Brazilian Portuguese
+      this.synthesis.lang = 'pt-BR';
     }
+  }
+
+  private splitIntoSentences(text: string): string[] {
+    // Split by common sentence terminators while preserving the terminators
+    return text
+      .split(/([.!?]+)/)
+      .reduce((acc: string[], current, index, array) => {
+        if (index % 2 === 0) {
+          // If there's a next piece (punctuation), combine them
+          if (array[index + 1]) {
+            acc.push(current + array[index + 1]);
+          } else if (current.trim()) {
+            // If it's the last piece and not empty, add it
+            acc.push(current);
+          }
+        }
+        return acc;
+      }, [])
+      .filter(sentence => sentence.trim().length > 0);
   }
 
   async startListening(): Promise<string> {
@@ -95,7 +115,6 @@ export class SpeechHandler {
       this.isListening = true;
       this.recognition.start();
 
-      // Set a timeout to stop listening after 10 seconds if no speech is detected
       setTimeout(() => {
         if (this.isListening && this.recognition) {
           this.recognition.stop();
@@ -105,19 +124,39 @@ export class SpeechHandler {
   }
 
   async speak(text: string) {
-    if (!this.synthesis) {
-      throw new Error('Síntese de voz não suportada');
+    if (this.isPlaying) {
+      console.log('Already playing, queuing next sentence...');
+      return;
     }
 
-    const response = await fetch('/api/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
+    const sentences = this.splitIntoSentences(text);
+    this.isPlaying = true;
 
-    const audioBlob = await response.blob();
-    const audio = new Audio(URL.createObjectURL(audioBlob));
-    await audio.play();
+    try {
+      for (const sentence of sentences) {
+        if (sentence.trim()) {
+          const response = await fetch('/api/speech', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: sentence })
+          });
+
+          const audioBlob = await response.blob();
+          const audio = new Audio(URL.createObjectURL(audioBlob));
+
+          // Wait for the current sentence to finish before playing the next
+          await new Promise<void>((resolve) => {
+            audio.onended = () => resolve();
+            audio.play().catch(console.error);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error in sequential speech:', error);
+      throw error;
+    } finally {
+      this.isPlaying = false;
+    }
   }
 
   stopListening() {

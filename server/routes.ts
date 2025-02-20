@@ -33,6 +33,12 @@ export async function registerRoutes(app: Express) {
   app.post("/api/speech", async (req: Request, res: Response) => {
     try {
       const { text } = req.body;
+
+      if (!text || text.trim().length === 0) {
+        res.status(400).json({ error: 'Text is required' });
+        return;
+      }
+
       const audioBuffer = await textToSpeech(text);
 
       res.set('Content-Type', 'audio/mpeg');
