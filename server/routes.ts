@@ -5,6 +5,7 @@ import { processUserInput, textToSpeech } from "./openai";
 import { insertConversationSchema } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth } from "./auth";
+import { createPixPayment } from "./stripe";
 
 export async function registerRoutes(app: Express) {
   // Set up authentication routes
@@ -75,6 +76,31 @@ export async function registerRoutes(app: Express) {
       res.send(Buffer.from(audioBuffer));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/create-payment", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { planId, amount } = req.body;
+
+      const paymentDetails = await createPixPayment(amount, planId, req.user!.id);
+
+      // Store subscription intent
+      await storage.addSubscription({
+        userId: req.user!.id,
+        planId,
+        status: "pending",
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        amount,
+        paymentId: paymentDetails.paymentIntentId,
+        createdAt: new Date().toISOString(),
+      });
+
+      res.json(paymentDetails);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: message });
     }
   });

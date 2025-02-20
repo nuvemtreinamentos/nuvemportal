@@ -1,4 +1,4 @@
-import { conversations, type Conversation, type InsertConversation, users, type User, type InsertUser } from "@shared/schema";
+import { conversations, type Conversation, type InsertConversation, users, type User, type InsertUser, subscriptions, type Subscription, type InsertSubscription } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import session from "express-session";
@@ -19,6 +19,11 @@ export interface IStorage {
 
   // Session store
   sessionStore: session.Store;
+
+  // Subscription management
+  addSubscription(subscription: InsertSubscription): Promise<Subscription>;
+  getSubscriptionsByUser(userId: number): Promise<Subscription[]>;
+  updateSubscriptionStatus(id: number, status: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -81,6 +86,28 @@ export class DatabaseStorage implements IStorage {
       .from(conversations)
       .where(eq(conversations.id, id));
     return conversation;
+  }
+
+  async addSubscription(subscription: InsertSubscription): Promise<Subscription> {
+    const [newSubscription] = await db
+      .insert(subscriptions)
+      .values(subscription)
+      .returning();
+    return newSubscription;
+  }
+
+  async getSubscriptionsByUser(userId: number): Promise<Subscription[]> {
+    return await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId));
+  }
+
+  async updateSubscriptionStatus(id: number, status: string): Promise<void> {
+    await db
+      .update(subscriptions)
+      .set({ status })
+      .where(eq(subscriptions.id, id));
   }
 }
 

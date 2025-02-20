@@ -7,11 +7,13 @@ import { ProtectedRoute } from "@/lib/protected-route";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import AuthPage from "@/pages/auth";
+import BillingPage from "@/pages/billing";
 
 function Router() {
   return (
     <Switch>
       <ProtectedRoute path="/" component={Home} />
+      <ProtectedRoute path="/billing" component={BillingPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
