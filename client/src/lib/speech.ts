@@ -18,6 +18,7 @@ interface SpeechRecognitionEvent {
       };
     };
   };
+  resultIndex: number;
 }
 
 interface SpeechRecognitionErrorEvent {
@@ -34,12 +35,14 @@ export class SpeechHandler {
   synthesis: SpeechSynthesisUtterance | null = null;
   private isListening: boolean = false;
   private isPlaying: boolean = false;
+  private lastSpeechTime: number = 0;
+  private silenceTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
       const SpeechRecognitionConstructor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       this.recognition = new SpeechRecognitionConstructor();
-      this.recognition.continuous = false;
+      this.recognition.continuous = true;
       this.recognition.interimResults = true;
       this.recognition.lang = 'pt-BR';
     }
@@ -51,16 +54,13 @@ export class SpeechHandler {
   }
 
   private splitIntoSentences(text: string): string[] {
-    // Split by common sentence terminators while preserving the terminators
     return text
       .split(/([.!?]+)/)
       .reduce((acc: string[], current, index, array) => {
         if (index % 2 === 0) {
-          // If there's a next piece (punctuation), combine them
           if (array[index + 1]) {
             acc.push(current + array[index + 1]);
           } else if (current.trim()) {
-            // If it's the last piece and not empty, add it
             acc.push(current);
           }
         }
@@ -68,6 +68,26 @@ export class SpeechHandler {
       }, [])
       .filter(sentence => sentence.trim().length > 0);
   }
+
+  private resetSilenceTimer(resolve: (transcript: string) => void, reject: (error: Error) => void) {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+    }
+
+    this.silenceTimer = setTimeout(() => {
+      if (Date.now() - this.lastSpeechTime > 2000) {
+        this.stopListening();
+        if (this.recognition && this.recognition.onresult) {
+          resolve(this.finalTranscript);
+        } else {
+          reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
+        }
+      }
+    }, 2000);
+  }
+
+  private finalTranscript: string = '';
+  private interimTranscript: string = '';
 
   async startListening(): Promise<string> {
     if (!this.recognition) {
@@ -81,26 +101,23 @@ export class SpeechHandler {
     return new Promise((resolve, reject) => {
       if (!this.recognition) return;
 
-      let finalTranscript = '';
-      let hasReceivedResult = false;
+      this.finalTranscript = '';
+      this.interimTranscript = '';
+      this.lastSpeechTime = Date.now();
 
       this.recognition.onresult = (event: SpeechRecognitionEvent) => {
-        hasReceivedResult = true;
-        const transcript = event.results[0][0].transcript;
-        if (event.results[0].isFinal) {
-          finalTranscript = transcript;
-        }
-      };
+        this.lastSpeechTime = Date.now();
+        this.interimTranscript = '';
 
-      this.recognition.onend = () => {
-        this.isListening = false;
-        if (!hasReceivedResult) {
-          reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
-        } else if (finalTranscript) {
-          resolve(finalTranscript);
-        } else {
-          reject(new Error('Não foi possível processar a fala. Por favor, tente novamente.'));
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            this.finalTranscript += event.results[i][0].transcript;
+          } else {
+            this.interimTranscript += event.results[i][0].transcript;
+          }
         }
+
+        this.resetSilenceTimer(resolve, reject);
       };
 
       this.recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -112,14 +129,26 @@ export class SpeechHandler {
         }
       };
 
+      this.recognition.onend = () => {
+        this.isListening = false;
+        if (this.silenceTimer) {
+          clearTimeout(this.silenceTimer);
+        }
+        if (!this.finalTranscript && !this.interimTranscript) {
+          reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
+        }
+      };
+
       this.isListening = true;
       this.recognition.start();
 
+      // Set a longer timeout for maximum recording duration
       setTimeout(() => {
         if (this.isListening && this.recognition) {
-          this.recognition.stop();
+          this.stopListening();
+          resolve(this.finalTranscript);
         }
-      }, 10000);
+      }, 30000); // 30 seconds maximum recording time
     });
   }
 
@@ -144,7 +173,6 @@ export class SpeechHandler {
           const audioBlob = await response.blob();
           const audio = new Audio(URL.createObjectURL(audioBlob));
 
-          // Wait for the current sentence to finish before playing the next
           await new Promise<void>((resolve) => {
             audio.onended = () => resolve();
             audio.play().catch(console.error);
