@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -11,14 +13,24 @@ interface SpeechRecognition extends EventTarget {
 }
 
 interface SpeechRecognitionEvent {
-  results: {
-    [index: number]: {
-      [index: number]: {
-        transcript: string;
-      };
-    };
-  };
+  results: SpeechRecognitionResultList;
   resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  [index: number]: SpeechRecognitionResult;
+  length: number;
+}
+
+interface SpeechRecognitionResult {
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+  length: number;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
 }
 
 interface SpeechRecognitionErrorEvent {
@@ -39,12 +51,14 @@ export class SpeechHandler {
   private silenceTimer: NodeJS.Timeout | null = null;
   private currentAudio: HTMLAudioElement | null = null;
   private nextAudio: HTMLAudioElement | null = null;
+  private finalTranscript: string = '';
+  private interimTranscript: string = '';
 
   constructor() {
     if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
       const SpeechRecognitionConstructor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       this.recognition = new SpeechRecognitionConstructor();
-      this.recognition.continuous = true;
+      this.recognition.continuous = false;
       this.recognition.interimResults = true;
       this.recognition.lang = 'pt-BR';
     }
@@ -91,7 +105,7 @@ export class SpeechHandler {
     this.silenceTimer = setTimeout(() => {
       if (Date.now() - this.lastSpeechTime > 2000) {
         this.stopListening();
-        if (this.recognition && this.recognition.onresult) {
+        if (this.finalTranscript) {
           resolve(this.finalTranscript);
         } else {
           reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
@@ -99,9 +113,6 @@ export class SpeechHandler {
       }
     }, 2000);
   }
-
-  private finalTranscript: string = '';
-  private interimTranscript: string = '';
 
   async startListening(): Promise<string> {
     if (!this.recognition) {
@@ -123,11 +134,13 @@ export class SpeechHandler {
         this.lastSpeechTime = Date.now();
         this.interimTranscript = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i][0].isFinal) {
-            this.finalTranscript += event.results[i][0].transcript;
+        const results = event.results;
+        for (let i = event.resultIndex; i < results.length; i++) {
+          const result = results[i];
+          if (result.isFinal) {
+            this.finalTranscript += result[0].transcript;
           } else {
-            this.interimTranscript += event.results[i][0].transcript;
+            this.interimTranscript += result[0].transcript;
           }
         }
 
@@ -148,7 +161,9 @@ export class SpeechHandler {
         if (this.silenceTimer) {
           clearTimeout(this.silenceTimer);
         }
-        if (!this.finalTranscript && !this.interimTranscript) {
+        if (this.finalTranscript) {
+          resolve(this.finalTranscript);
+        } else {
           reject(new Error('Nenhuma fala detectada. Por favor, tente novamente.'));
         }
       };
@@ -159,7 +174,9 @@ export class SpeechHandler {
       setTimeout(() => {
         if (this.isListening && this.recognition) {
           this.stopListening();
-          resolve(this.finalTranscript);
+          if (this.finalTranscript) {
+            resolve(this.finalTranscript);
+          }
         }
       }, 30000);
     });
