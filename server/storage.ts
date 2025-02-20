@@ -1,8 +1,11 @@
 import { conversations, type Conversation, type InsertConversation, users, type User, type InsertUser } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   addConversation(conv: InsertConversation): Promise<Conversation>;
@@ -18,43 +21,36 @@ export interface IStorage {
   sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private conversations: Map<number, Conversation>;
-  private users: Map<number, User>;
-  private currentConvId: number;
-  private currentUserId: number;
+export class DatabaseStorage implements IStorage {
   readonly sessionStore: session.Store;
 
   constructor() {
-    this.conversations = new Map();
-    this.users = new Map();
-    this.currentConvId = 1;
-    this.currentUserId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // 24 hours
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
     });
   }
 
-  async createUser(user: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const newUser: User = {
-      id,
-      username: user.username,
-      password: user.password,
-      createdAt: user.createdAt
-    };
-    this.users.set(id, newUser);
-    return newUser;
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        username: insertUser.username,
+        password: insertUser.password,
+        createdAt: insertUser.createdAt
+      })
+      .returning();
+    return user;
   }
 
   async addConversation(conv: InsertConversation): Promise<Conversation> {
@@ -62,31 +58,30 @@ export class MemStorage implements IStorage {
       throw new Error("userId is required for conversations");
     }
 
-    const id = this.currentConvId++;
-    const conversation: Conversation = {
-      id,
-      userId: conv.userId,
-      userInput: conv.userInput,
-      aiResponse: conv.aiResponse,
-      metadata: {
-        type: conv.metadata?.type || "text",
-        ...(conv.metadata?.codeSnippet && { codeSnippet: conv.metadata.codeSnippet }),
-        ...(conv.metadata?.language && { language: conv.metadata.language }),
-        ...(conv.metadata?.imageUrl && { imageUrl: conv.metadata.imageUrl })
-      },
-      timestamp: conv.timestamp
-    };
-    this.conversations.set(id, conversation);
+    const [conversation] = await db
+      .insert(conversations)
+      .values({
+        userId: conv.userId,
+        userInput: conv.userInput,
+        aiResponse: conv.aiResponse,
+        metadata: conv.metadata,
+        timestamp: conv.timestamp
+      })
+      .returning();
     return conversation;
   }
 
   async getConversations(): Promise<Conversation[]> {
-    return Array.from(this.conversations.values());
+    return await db.select().from(conversations);
   }
 
   async getConversation(id: number): Promise<Conversation | undefined> {
-    return this.conversations.get(id);
+    const [conversation] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, id));
+    return conversation;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
