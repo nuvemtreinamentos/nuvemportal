@@ -7,6 +7,8 @@ import {
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { auth, googleProvider } from "@/lib/firebase";
+import { signInWithPopup } from "firebase/auth";
 
 type AuthContextType = {
   user: SelectUser | null;
@@ -15,6 +17,7 @@ type AuthContextType = {
   loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<SelectUser, Error, InsertUser>;
+  loginWithGoogle: () => Promise<void>;
 };
 
 type LoginData = Pick<InsertUser, "username" | "password">;
@@ -69,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
+      await auth.signOut();
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
@@ -82,6 +86,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const loginWithGoogle = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const res = await apiRequest("POST", "/api/login/google", {
+        email: result.user.email,
+        name: result.user.displayName,
+        uid: result.user.uid,
+      });
+      const user = await res.json();
+      queryClient.setQueryData(["/api/user"], user);
+    } catch (error) {
+      toast({
+        title: "Falha no login com Google",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -91,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginMutation,
         logoutMutation,
         registerMutation,
+        loginWithGoogle,
       }}
     >
       {children}

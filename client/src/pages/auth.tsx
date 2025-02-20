@@ -8,9 +8,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useEffect } from "react";
+import { SiGoogle } from "react-icons/si";
 
 export default function AuthPage() {
-  const { loginMutation, registerMutation, user } = useAuth();
+  const { loginMutation, registerMutation, user, loginWithGoogle } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -44,6 +45,28 @@ export default function AuthPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-6">
+              <Button
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2"
+                onClick={() => loginWithGoogle()}
+              >
+                <SiGoogle className="h-4 w-4" />
+                Entrar com Google
+              </Button>
+            </div>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Ou continue com
+                </span>
+              </div>
+            </div>
+
             <Tabs defaultValue="login">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Login</TabsTrigger>

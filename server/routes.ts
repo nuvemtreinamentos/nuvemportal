@@ -18,6 +18,29 @@ export async function registerRoutes(app: Express) {
     next();
   };
 
+  app.post("/api/login/google", async (req: Request, res: Response) => {
+    try {
+      let user = await storage.getUserByUsername(req.body.email);
+
+      if (!user) {
+        // Create a new user if they don't exist
+        user = await storage.createUser({
+          username: req.body.email,
+          password: req.body.uid, // Use Firebase UID as password
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      req.login(user, (err) => {
+        if (err) throw err;
+        res.json(user);
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.post("/api/chat", requireAuth, async (req: Request, res: Response) => {
     try {
       const { userInput } = req.body;
