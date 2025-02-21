@@ -7,6 +7,11 @@ export function Navbar() {
   const { user, logoutMutation } = useAuth();
   const [location] = useLocation();
 
+  // Don't show navbar on auth page
+  if (location === "/auth") {
+    return null;
+  }
+
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
