@@ -12,30 +12,28 @@ async function findStoredImage(keywords: string[]): Promise<string> {
   try {
     console.log('Searching for images with keywords:', keywords);
 
-    // Create text array literal for PostgreSQL
-    const keywordsArray = `{${keywords.map(k => `"${k}"`).join(',')}}`;
-
     const query = sql`
       SELECT image_url
       FROM educational_images
-      WHERE keywords && ${keywordsArray}::text[]
+      WHERE keywords && ${sql.array(keywords)}
       ORDER BY RANDOM()
       LIMIT 1
     `;
 
     console.log('Executing query:', query.toString());
 
-    const [result] = await db.execute<{ image_url: string }>(query);
+    const result = await db.execute(query);
+    const rows = result as Array<{ image_url: string }>;
 
-    console.log('Query result:', result);
+    console.log('Query result:', rows[0]);
 
-    if (!result?.image_url) {
+    if (!rows.length || !rows[0].image_url) {
       console.log('No matching image found, returning placeholder');
       return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
     }
 
-    console.log('Found matching image:', result.image_url);
-    return result.image_url;
+    console.log('Found matching image:', rows[0].image_url);
+    return rows[0].image_url;
   } catch (error) {
     console.error('Error searching for stored image:', error);
     return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
@@ -93,7 +91,7 @@ export async function processUserInput(input: string): Promise<{
     const result = JSON.parse(content);
     console.log('Parsed OpenAI response:', result);
 
-    if (!result.type || !result.content || 
+    if (!result.type || !result.content ||
         !["code", "image", "text"].includes(result.type)) {
       throw new Error("Formato de resposta inválido da OpenAI");
     }
