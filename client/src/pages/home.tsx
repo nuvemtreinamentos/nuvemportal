@@ -24,13 +24,20 @@ export default function Home() {
   } | null>(null);
 
   useEffect(() => {
-    // Hide welcome screen after 3 seconds
     const timer = setTimeout(() => {
       setShowWelcome(false);
     }, 3000);
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Add logging to debug response handling
+  useEffect(() => {
+    if (response) {
+      console.log('New response received:', response);
+      console.log('Response metadata:', response.metadata);
+    }
+  }, [response]);
 
   return (
     <>
@@ -50,7 +57,16 @@ export default function Home() {
 
           <VoiceInterface
             onTranscript={setTranscript}
-            onResponse={(res) => setResponse(JSON.parse(res))}
+            onResponse={(res) => {
+              console.log('Raw response from voice interface:', res);
+              try {
+                const parsedResponse = JSON.parse(res);
+                console.log('Parsed response:', parsedResponse);
+                setResponse(parsedResponse);
+              } catch (error) {
+                console.error('Error parsing response:', error);
+              }
+            }}
           />
 
           {transcript && (
