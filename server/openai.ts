@@ -9,10 +9,11 @@ if (!process.env.OPENAI_API_KEY) {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function findStoredImage(keywords: string[]): Promise<string> {
+  const CAR_PLACEHOLDER = "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-car.svg";
+
   try {
     console.log('Searching for images with keywords:', keywords);
 
-    // Use array literal syntax for PostgreSQL
     const query = sql`
       SELECT image_url
       FROM educational_images
@@ -30,16 +31,15 @@ async function findStoredImage(keywords: string[]): Promise<string> {
 
     if (!rows.length || !rows[0].image_url) {
       console.log('No matching image found in the database, returning car placeholder');
-      // Return car-specific placeholder when no image is found
-      return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-car.svg";
+      return CAR_PLACEHOLDER;
     }
 
     console.log('Found matching image:', rows[0].image_url);
     return rows[0].image_url;
   } catch (error) {
     console.error('Error searching for stored image:', error);
-    // Only return generic image placeholder on actual errors
-    return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
+    // Return car placeholder for any errors as well
+    return CAR_PLACEHOLDER;
   }
 }
 
