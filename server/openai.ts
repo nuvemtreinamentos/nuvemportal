@@ -14,10 +14,13 @@ async function findStoredImage(keywords: string[]): Promise<string> {
   try {
     console.log('Searching for images with keywords:', keywords);
 
+    // Format keywords for SQL array
+    const formattedKeywords = keywords.map(k => `'${k}'`).join(',');
+
     const query = sql`
       SELECT image_url
       FROM educational_images
-      WHERE keywords && ${sql`ARRAY[${sql.join(keywords)}]::text[]`}
+      WHERE keywords && ARRAY[${formattedKeywords}]::text[]
       ORDER BY RANDOM()
       LIMIT 1
     `;
@@ -25,7 +28,7 @@ async function findStoredImage(keywords: string[]): Promise<string> {
     console.log('Executing query:', query.toString());
 
     const result = await db.execute(query);
-    const rows = result as Array<{ image_url: string }>;
+    const rows = result as { image_url: string }[];
 
     console.log('Query result:', rows);
 
@@ -38,7 +41,6 @@ async function findStoredImage(keywords: string[]): Promise<string> {
     return rows[0].image_url;
   } catch (error) {
     console.error('Error searching for stored image:', error);
-    // Return car placeholder for any errors as well
     return CAR_PLACEHOLDER;
   }
 }

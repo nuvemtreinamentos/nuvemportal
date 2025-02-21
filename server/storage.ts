@@ -62,16 +62,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addConversation(conv: InsertConversation): Promise<Conversation> {
-    if (!conv.userId) {
-      throw new Error("userId is required for conversations");
+    if (!conv.user_id) {
+      throw new Error("user_id is required for conversations");
     }
 
     const [conversation] = await db
       .insert(conversations)
       .values({
-        userId: conv.userId,
-        userInput: conv.userInput,
-        aiResponse: conv.aiResponse,
+        user_id: conv.user_id,
+        user_input: conv.user_input,
+        ai_response: conv.ai_response,
         metadata: conv.metadata,
         timestamp: conv.timestamp
       })
