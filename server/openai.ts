@@ -12,10 +12,11 @@ async function findStoredImage(keywords: string[]): Promise<string> {
   try {
     console.log('Searching for images with keywords:', keywords);
 
+    // Use array literal syntax for PostgreSQL
     const query = sql`
       SELECT image_url
       FROM educational_images
-      WHERE keywords && ${sql.array(keywords)}
+      WHERE keywords && ${sql`ARRAY[${sql.join(keywords)}]::text[]`}
       ORDER BY RANDOM()
       LIMIT 1
     `;
