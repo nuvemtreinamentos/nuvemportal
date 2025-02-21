@@ -26,17 +26,19 @@ async function findStoredImage(keywords: string[]): Promise<string> {
     const result = await db.execute(query);
     const rows = result as Array<{ image_url: string }>;
 
-    console.log('Query result:', rows[0]);
+    console.log('Query result:', rows);
 
     if (!rows.length || !rows[0].image_url) {
-      console.log('No matching image found, returning placeholder');
-      return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
+      console.log('No matching image found in the database, returning car placeholder');
+      // Return car-specific placeholder when no image is found
+      return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-car.svg";
     }
 
     console.log('Found matching image:', rows[0].image_url);
     return rows[0].image_url;
   } catch (error) {
     console.error('Error searching for stored image:', error);
+    // Only return generic image placeholder on actual errors
     return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
   }
 }
