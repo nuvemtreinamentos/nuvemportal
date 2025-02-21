@@ -10,24 +10,34 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function findStoredImage(keywords: string[]): Promise<string> {
   try {
-    // Search for images where any of the keywords match
-    const [result] = await db.execute<{ image_url: string }>(sql`
+    console.log('Searching for images with keywords:', keywords);
+
+    // Create text array literal for PostgreSQL
+    const keywordsArray = `{${keywords.map(k => `"${k}"`).join(',')}}`;
+
+    const query = sql`
       SELECT image_url
       FROM educational_images
-      WHERE keywords && ${sql.array(keywords, 'text')}
+      WHERE keywords && ${keywordsArray}::text[]
       ORDER BY RANDOM()
       LIMIT 1
-    `);
+    `;
+
+    console.log('Executing query:', query.toString());
+
+    const [result] = await db.execute<{ image_url: string }>(query);
+
+    console.log('Query result:', result);
 
     if (!result?.image_url) {
-      // Return a default placeholder image if no match is found
+      console.log('No matching image found, returning placeholder');
       return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
     }
 
+    console.log('Found matching image:', result.image_url);
     return result.image_url;
   } catch (error) {
     console.error('Error searching for stored image:', error);
-    // Return default image in case of error
     return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
   }
 }
@@ -81,6 +91,7 @@ export async function processUserInput(input: string): Promise<{
 
   try {
     const result = JSON.parse(content);
+    console.log('Parsed OpenAI response:', result);
 
     if (!result.type || !result.content || 
         !["code", "image", "text"].includes(result.type)) {
@@ -104,9 +115,9 @@ export async function processUserInput(input: string): Promise<{
       if (!result.keywords || !Array.isArray(result.keywords)) {
         result.keywords = ['placeholder'];
       }
-      console.log('Searching for image with keywords:', result.keywords);
+      console.log('Looking for image with keywords:', result.keywords);
       const imageUrl = await findStoredImage(result.keywords);
-      console.log('Found stored image:', imageUrl);
+      console.log('Found image URL:', imageUrl);
 
       return {
         ...output,
