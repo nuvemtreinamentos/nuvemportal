@@ -1,10 +1,30 @@
 import OpenAI from "openai";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY environment variable is required");
 }
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+async function findStoredImage(keywords: string[]): Promise<string | null> {
+  try {
+    // Search for images where any of the keywords match
+    const [result] = await db.execute<{ image_url: string }>(sql`
+      SELECT image_url
+      FROM educational_images
+      WHERE keywords && ${keywords}::text[]
+      ORDER BY RANDOM()
+      LIMIT 1
+    `);
+
+    return result?.image_url || null;
+  } catch (error) {
+    console.error('Error searching for stored image:', error);
+    return null;
+  }
+}
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
 export async function processUserInput(input: string): Promise<{
@@ -29,19 +49,14 @@ export async function processUserInput(input: string): Promise<{
           "type": "code" | "image" | "text",
           "content": "sua resposta aqui",
           "language": "linguagem de programação (apenas para código)",
-          "imagePrompt": "prompt detalhado para geração de imagem (apenas para imagem)"
+          "keywords": ["palavra1", "palavra2"] (apenas para imagens, máximo 5 palavras-chave relevantes)
         }
 
         Diretrizes:
         - Para perguntas de programação: type="code", inclua o código em content, especifique a language
-        - Para conceitos visuais ou quando uma visualização ajudaria: type="image", inclua explicação em content, forneça imagePrompt detalhado
+        - Para conceitos visuais ou quando uma visualização ajudaria: type="image", forneça explicação em content e keywords relevantes
         - Para outras perguntas: type="text", forneça explicação em content
-        - Mantenha as respostas concisas e focadas
-
-        Para geração de imagens:
-        - Crie prompts detalhados e claros que especifiquem estilo, composição e detalhes importantes
-        - Foque em diagramas educacionais e explicações visuais
-        - Evite interpretações abstratas ou artísticas, a menos que especificamente solicitado`
+        - Mantenha as respostas concisas e focadas`
       },
       { role: "user", content: input }
     ],
@@ -74,21 +89,33 @@ export async function processUserInput(input: string): Promise<{
       };
     }
 
-    if (result.type === "image" && result.imagePrompt) {
-      const image = await openai.images.generate({
-        model: "dall-e-3",
-        prompt: result.imagePrompt,
-        n: 1,
-        size: "1024x1024"
-      });
+    if (result.type === "image") {
+      // First try to find a stored image if keywords are provided
+      let imageUrl = null;
+      if (result.keywords && Array.isArray(result.keywords)) {
+        imageUrl = await findStoredImage(result.keywords);
+      }
 
-      if (!image.data[0].url) {
-        throw new Error("Falha ao gerar imagem");
+      // If no stored image is found, fallback to DALL-E
+      if (!imageUrl) {
+        console.log('No stored image found, using DALL-E');
+        const image = await openai.images.generate({
+          model: "dall-e-3",
+          prompt: result.content,
+          n: 1,
+          size: "1024x1024"
+        });
+
+        if (!image.data[0].url) {
+          throw new Error("Falha ao gerar imagem");
+        }
+
+        imageUrl = image.data[0].url;
       }
 
       return {
         ...output,
-        imageUrl: image.data[0].url
+        imageUrl
       };
     }
 
