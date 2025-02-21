@@ -8,7 +8,7 @@ if (!process.env.OPENAI_API_KEY) {
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-async function findStoredImage(keywords: string[]): Promise<string | null> {
+async function findStoredImage(keywords: string[]): Promise<string> {
   try {
     // Search for images where any of the keywords match
     const [result] = await db.execute<{ image_url: string }>(sql`
@@ -19,10 +19,16 @@ async function findStoredImage(keywords: string[]): Promise<string | null> {
       LIMIT 1
     `);
 
-    return result?.image_url || null;
+    if (!result?.image_url) {
+      // Return a default placeholder image if no match is found
+      return "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/placeholder.svg";
+    }
+
+    return result.image_url;
   } catch (error) {
     console.error('Error searching for stored image:', error);
-    return null;
+    // Return default image in case of error
+    return "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/placeholder.svg";
   }
 }
 
@@ -41,8 +47,8 @@ export async function processUserInput(input: string): Promise<{
         role: "system",
         content: `Você é um tutor de IA especializado em programação e inglês.
         Responda sempre em português do Brasil.
-        Quando os usuários solicitarem visualizações, diagramas ou perguntarem sobre conceitos visuais,
-        sempre gere uma imagem para ajudar a explicar o conceito.
+        Quando os usuários solicitarem visualizações ou diagramas, use palavras-chave
+        para encontrar imagens relevantes em nossa biblioteca.
 
         Responda no seguinte formato JSON:
         {
@@ -94,30 +100,12 @@ export async function processUserInput(input: string): Promise<{
     }
 
     if (result.type === "image") {
-      // First try to find a stored image if keywords are provided
-      let imageUrl = null;
-      if (result.keywords && Array.isArray(result.keywords)) {
-        console.log('Searching for image with keywords:', result.keywords);
-        imageUrl = await findStoredImage(result.keywords);
-        console.log('Found stored image:', imageUrl);
+      if (!result.keywords || !Array.isArray(result.keywords)) {
+        result.keywords = ['placeholder'];
       }
-
-      // If no stored image is found, fallback to DALL-E
-      if (!imageUrl) {
-        console.log('No stored image found, using DALL-E');
-        const image = await openai.images.generate({
-          model: "dall-e-3",
-          prompt: result.content,
-          n: 1,
-          size: "1024x1024"
-        });
-
-        if (!image.data[0].url) {
-          throw new Error("Falha ao gerar imagem");
-        }
-
-        imageUrl = image.data[0].url;
-      }
+      console.log('Searching for image with keywords:', result.keywords);
+      const imageUrl = await findStoredImage(result.keywords);
+      console.log('Found stored image:', imageUrl);
 
       return {
         ...output,
@@ -135,8 +123,7 @@ export async function textToSpeech(text: string): Promise<ArrayBuffer> {
   const response = await openai.audio.speech.create({
     model: "tts-1",
     voice: "alloy",
-    input: text,
-    language: "pt", // Set language to Portuguese
+    input: text
   });
 
   return await response.arrayBuffer();
