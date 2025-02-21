@@ -5,6 +5,7 @@ import { ImageDisplay } from "@/components/image-display";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Scroll } from "lucide-react";
 import { WelcomeScreen } from "@/components/welcome-screen";
+import { LearningHeatmap } from "@/components/learning-heatmap";
 
 export default function Home() {
   const [transcript, setTranscript] = useState("");
@@ -44,6 +45,8 @@ export default function Home() {
               Your AI-powered learning assistant for programming and English
             </p>
           </div>
+
+          <LearningHeatmap />
 
           <VoiceInterface
             onTranscript={setTranscript}

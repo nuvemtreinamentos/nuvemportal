@@ -11,3 +11,44 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* React Calendar Heatmap custom styles */
+.react-calendar-heatmap .color-empty {
+  fill: hsl(var(--muted));
+}
+
+.react-calendar-heatmap .color-github-1 {
+  fill: hsl(var(--primary) / 0.2);
+}
+
+.react-calendar-heatmap .color-github-2 {
+  fill: hsl(var(--primary) / 0.4);
+}
+
+.react-calendar-heatmap .color-github-3 {
+  fill: hsl(var(--primary) / 0.6);
+}
+
+.react-calendar-heatmap .color-github-4 {
+  fill: hsl(var(--primary) / 0.8);
+}
+
+/* Tooltip styles */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]:hover:after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  z-index: 10;
+}

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, jsonb, integer, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -54,3 +54,24 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
 
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 export type Subscription = typeof subscriptions.$inferSelect;
+
+export const learningActivities = pgTable("learning_activities", {
+  id: serial("id").primaryKey(),
+  userId: serial("user_id").references(() => users.id),
+  activityType: text("activity_type").notNull(), 
+  activityDate: date("activity_date").notNull(),
+  progress: integer("progress").notNull(), 
+  details: jsonb("details").$type<{
+    topic: string;
+    timeSpent: number; 
+    completed: boolean;
+  }>(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const insertLearningActivitySchema = createInsertSchema(learningActivities).omit({
+  id: true,
+});
+
+export type InsertLearningActivity = z.infer<typeof insertLearningActivitySchema>;
+export type LearningActivity = typeof learningActivities.$inferSelect;
