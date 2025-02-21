@@ -21,18 +21,17 @@ async function findStoredImage(keywords: string[]): Promise<string> {
 
     if (!result?.image_url) {
       // Return a default placeholder image if no match is found
-      return "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/placeholder.svg";
+      return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
     }
 
     return result.image_url;
   } catch (error) {
     console.error('Error searching for stored image:', error);
     // Return default image in case of error
-    return "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/placeholder.svg";
+    return "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-image.svg";
   }
 }
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024
 export async function processUserInput(input: string): Promise<{
   response: string;
   type: "code" | "image" | "text";
@@ -61,6 +60,8 @@ export async function processUserInput(input: string): Promise<{
         Para imagens, use palavras-chave simples e diretas, por exemplo:
         - Para carros: ["car", "vehicle", "automobile"]
         - Para computadores: ["computer", "laptop", "desktop"]
+        - Para livros: ["book", "reading", "education"]
+        - Para código: ["code", "programming", "development"]
 
         Diretrizes:
         - Para perguntas de programação: type="code", inclua o código em content, especifique a language
