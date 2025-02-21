@@ -54,14 +54,14 @@ export async function processUserInput(input: string): Promise<{
           "type": "code" | "image" | "text",
           "content": "sua resposta aqui",
           "language": "linguagem de programação (apenas para código)",
-          "keywords": ["palavra1", "palavra2"] (apenas para imagens, use palavras-chave simples e diretas)
+          "keywords": ["palavra1", "palavra2"] (apenas para imagens, use palavras-chave em inglês ou português)
         }
 
-        Para imagens, use palavras-chave simples e diretas, por exemplo:
-        - Para carros: ["car", "vehicle", "automobile"]
-        - Para computadores: ["computer", "laptop", "desktop"]
-        - Para livros: ["book", "reading", "education"]
-        - Para código: ["code", "programming", "development"]
+        Para imagens, use palavras-chave em inglês ou português, por exemplo:
+        - Para carros: ["car", "vehicle", "automobile"] ou ["carro", "veículo", "automóvel"]
+        - Para computadores: ["computer", "laptop"] ou ["computador", "notebook"]
+        - Para livros: ["book", "reading"] ou ["livro", "leitura"]
+        - Para código: ["code", "programming"] ou ["código", "programação"]
 
         Diretrizes:
         - Para perguntas de programação: type="code", inclua o código em content, especifique a language
