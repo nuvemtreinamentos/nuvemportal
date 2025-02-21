@@ -27,10 +27,8 @@ async function findStoredImage(keywords: string[]): Promise<string> {
 
     console.log('Executing query:', query.toString());
 
-    const result = await db.execute(query);
-    const rows = result as { image_url: string }[];
-
-    console.log('Query result:', rows);
+    const { rows } = await db.execute(query);
+    console.log('Query result rows:', rows);
 
     if (!rows.length || !rows[0].image_url) {
       console.log('No matching image found in the database, returning car placeholder');
