@@ -14,7 +14,7 @@ async function findStoredImage(keywords: string[]): Promise<string | null> {
     const [result] = await db.execute<{ image_url: string }>(sql`
       SELECT image_url
       FROM educational_images
-      WHERE keywords && ${keywords}::text[]
+      WHERE keywords && ${sql.array(keywords, 'text')}
       ORDER BY RANDOM()
       LIMIT 1
     `);
@@ -49,12 +49,16 @@ export async function processUserInput(input: string): Promise<{
           "type": "code" | "image" | "text",
           "content": "sua resposta aqui",
           "language": "linguagem de programação (apenas para código)",
-          "keywords": ["palavra1", "palavra2"] (apenas para imagens, máximo 5 palavras-chave relevantes)
+          "keywords": ["palavra1", "palavra2"] (apenas para imagens, use palavras-chave simples e diretas)
         }
+
+        Para imagens, use palavras-chave simples e diretas, por exemplo:
+        - Para carros: ["car", "vehicle", "automobile"]
+        - Para computadores: ["computer", "laptop", "desktop"]
 
         Diretrizes:
         - Para perguntas de programação: type="code", inclua o código em content, especifique a language
-        - Para conceitos visuais ou quando uma visualização ajudaria: type="image", forneça explicação em content e keywords relevantes
+        - Para conceitos visuais: type="image", forneça explicação em content e keywords relevantes
         - Para outras perguntas: type="text", forneça explicação em content
         - Mantenha as respostas concisas e focadas`
       },
@@ -93,7 +97,9 @@ export async function processUserInput(input: string): Promise<{
       // First try to find a stored image if keywords are provided
       let imageUrl = null;
       if (result.keywords && Array.isArray(result.keywords)) {
+        console.log('Searching for image with keywords:', result.keywords);
         imageUrl = await findStoredImage(result.keywords);
+        console.log('Found stored image:', imageUrl);
       }
 
       // If no stored image is found, fallback to DALL-E
