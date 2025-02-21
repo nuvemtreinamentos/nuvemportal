@@ -80,6 +80,16 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.get("/api/learning-activities", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const activities = await storage.getLearningActivities(req.user!.id);
+      res.json(activities);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.post("/api/create-payment", requireAuth, async (req: Request, res: Response) => {
     try {
       const { planId, amount } = req.body;
