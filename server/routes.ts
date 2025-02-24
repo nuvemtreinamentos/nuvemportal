@@ -19,6 +19,64 @@ export async function registerRoutes(app: Express) {
     next();
   };
 
+  // Course endpoints
+  app.get("/api/courses", async (req: Request, res: Response) => {
+    try {
+      const courses = await storage.getCourses(true); // Get only active courses
+      res.json(courses);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // Course prompt endpoints
+  app.get("/api/courses/:courseId/prompts", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const prompts = await storage.getCoursePrompts(req.params.courseId);
+      res.json(prompts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // Context endpoints
+  app.post("/api/context", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const context = await storage.createContext({
+        coursePromptId: req.body.coursePromptId,
+        ack: false,
+      });
+      res.json(context);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.patch("/api/context/:id/ack", requireAuth, async (req: Request, res: Response) => {
+    try {
+      await storage.updateContextAck(req.params.id, true);
+      res.json({ success: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // Tutor endpoints
+  app.get("/api/tutors", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tutors = await storage.getTutors(true); // Get only active tutors
+      res.json(tutors);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // Keep existing routes
   app.post("/api/login/google", async (req: Request, res: Response) => {
     try {
       let user = await storage.getUserByUsername(req.body.email);

@@ -6,10 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Scroll } from "lucide-react";
 import { WelcomeScreen } from "@/components/welcome-screen";
 import { LearningHeatmap } from "@/components/learning-heatmap";
+import { CourseSelection } from "@/components/course-selection";
+import { useLocation } from "wouter";
 
 export default function Home() {
   const [transcript, setTranscript] = useState("");
   const [showWelcome, setShowWelcome] = useState(true);
+  const [, setLocation] = useLocation();
   const [response, setResponse] = useState<{
     id: number;
     userInput: string;
@@ -31,13 +34,10 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Add logging to debug response handling
-  useEffect(() => {
-    if (response) {
-      console.log('New response received:', response);
-      console.log('Response metadata:', response.metadata);
-    }
-  }, [response]);
+  const handleCourseSelect = (courseId: string) => {
+    // Navigate to the course page when a course is selected
+    setLocation(`/course/${courseId}`);
+  };
 
   return (
     <>
@@ -52,6 +52,15 @@ export default function Home() {
               Your AI-powered learning assistant for programming and English
             </p>
           </div>
+
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Choose Your Course</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CourseSelection onSelect={handleCourseSelect} />
+            </CardContent>
+          </Card>
 
           <LearningHeatmap />
 
