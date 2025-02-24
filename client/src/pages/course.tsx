@@ -1,11 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import type { Course, CoursePrompt, Tutor } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function CoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const { toast } = useToast();
 
   const { data: course, isLoading: courseLoading } = useQuery<Course>({
     queryKey: [`/api/courses/${courseId}`],
@@ -21,6 +24,46 @@ export default function CoursePage() {
     queryKey: ['/api/tutors'],
     retry: false,
   });
+
+  const acknowledgeMutation = useMutation({
+    mutationFn: async (coursePromptId: string) => {
+      // Get the latest context for this prompt
+      const contexts = await apiRequest(`/api/context?coursePromptId=${coursePromptId}`);
+      const latestContext = contexts[0];
+
+      if (!latestContext) {
+        throw new Error("No context found");
+      }
+
+      // Acknowledge the context
+      return await apiRequest(`/api/context/${latestContext.id}/ack`, {
+        method: "PATCH",
+      });
+    }
+  });
+
+  const handleTutorSelect = async (tutor: Tutor) => {
+    try {
+      if (!prompts?.length) {
+        throw new Error("No prompts available");
+      }
+
+      // Acknowledge the first prompt's context when tutor is selected
+      await acknowledgeMutation.mutateAsync(prompts[0].id);
+
+      toast({
+        title: "Tutor Selected",
+        description: `${tutor.name} will be your guide for this course.`,
+      });
+    } catch (error) {
+      console.error('Error selecting tutor:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to select tutor. Please try again.",
+      });
+    }
+  };
 
   if (courseLoading || promptsLoading || tutorsLoading) {
     return (
@@ -58,10 +101,14 @@ export default function CoursePage() {
                 <p>{prompt.prompt}</p>
               </div>
             ))}
-            
+
             <div className="grid gap-4 md:grid-cols-2 mt-6">
               {tutors?.map((tutor) => (
-                <Card key={tutor.id} className="cursor-pointer hover:bg-accent">
+                <Card 
+                  key={tutor.id} 
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => handleTutorSelect(tutor)}
+                >
                   <CardHeader>
                     <CardTitle className="text-lg">{tutor.name}</CardTitle>
                   </CardHeader>

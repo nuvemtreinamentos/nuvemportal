@@ -55,6 +55,20 @@ export async function registerRoutes(app: Express) {
   });
 
   // Context endpoints
+  app.get("/api/context", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.query.coursePromptId) {
+        return res.status(400).json({ error: "coursePromptId is required" });
+      }
+
+      const context = await storage.getLatestContext(req.query.coursePromptId as string);
+      res.json([context]); // Return as array for consistency
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.post("/api/context", requireAuth, async (req: Request, res: Response) => {
     try {
       const context = await storage.createContext({
