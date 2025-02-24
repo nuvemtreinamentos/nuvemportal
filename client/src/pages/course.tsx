@@ -28,7 +28,9 @@ export default function CoursePage() {
   const acknowledgeMutation = useMutation({
     mutationFn: async (coursePromptId: string) => {
       // Get the latest context for this prompt
-      const contexts = await apiRequest(`/api/context?coursePromptId=${coursePromptId}`);
+      const contexts = await apiRequest('/api/context?coursePromptId=' + coursePromptId, {
+        method: 'GET'
+      });
       const latestContext = contexts[0];
 
       if (!latestContext) {
@@ -38,6 +40,7 @@ export default function CoursePage() {
       // Acknowledge the context
       return await apiRequest(`/api/context/${latestContext.id}/ack`, {
         method: "PATCH",
+        body: JSON.stringify({ ack: true }),
       });
     }
   });

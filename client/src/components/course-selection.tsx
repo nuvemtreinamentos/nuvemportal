@@ -16,7 +16,9 @@ export function CourseSelection({ onSelect }: { onSelect: (courseId: string) => 
   const createContextMutation = useMutation({
     mutationFn: async (courseId: string) => {
       // First get the initial prompt for this course
-      const prompts = await apiRequest(`/api/courses/${courseId}/prompts`);
+      const prompts = await apiRequest('/api/courses/' + courseId + '/prompts', {
+        method: 'GET'
+      });
       const firstPrompt = prompts[0];
 
       if (!firstPrompt) {
@@ -26,9 +28,9 @@ export function CourseSelection({ onSelect }: { onSelect: (courseId: string) => 
       // Create context for the first prompt
       return await apiRequest("/api/context", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           coursePromptId: firstPrompt.id,
-        },
+        }),
       });
     }
   });
