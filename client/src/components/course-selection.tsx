@@ -1,53 +1,13 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Book, Code } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Course } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 
 export function CourseSelection({ onSelect }: { onSelect: (courseId: string) => void }) {
-  const { toast } = useToast();
-
   const { data: courses, isLoading } = useQuery({ 
     queryKey: ['/api/courses'],
     retry: false
   });
-
-  const createContextMutation = useMutation({
-    mutationFn: async (courseId: string) => {
-      // First get the initial prompt for this course
-      const prompts = await apiRequest('/api/courses/' + courseId + '/prompts', {
-        method: 'GET'
-      });
-      const firstPrompt = prompts[0];
-
-      if (!firstPrompt) {
-        throw new Error("No prompts found for this course");
-      }
-
-      // Create context for the first prompt
-      return await apiRequest("/api/context", {
-        method: "POST",
-        body: JSON.stringify({
-          coursePromptId: firstPrompt.id,
-        }),
-      });
-    }
-  });
-
-  const handleSelect = async (courseId: string) => {
-    try {
-      await createContextMutation.mutateAsync(courseId);
-      onSelect(courseId);
-    } catch (error) {
-      console.error('Error creating context:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to start the course. Please try again.",
-      });
-    }
-  };
 
   if (isLoading) {
     return (
@@ -74,7 +34,7 @@ export function CourseSelection({ onSelect }: { onSelect: (courseId: string) => 
         <Card 
           key={course.id}
           className="cursor-pointer hover:bg-accent transition-colors"
-          onClick={() => handleSelect(course.id)}
+          onClick={() => onSelect(course.id)}
         >
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
