@@ -30,6 +30,19 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.get("/api/courses/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const course = await storage.getCourse(req.params.id);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      res.json(course);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
   // Course prompt endpoints
   app.get("/api/courses/:courseId/prompts", requireAuth, async (req: Request, res: Response) => {
     try {
