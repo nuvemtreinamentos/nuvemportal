@@ -66,6 +66,10 @@ export default function CoursePage() {
   useEffect(() => {
     if (tutors && !tutorsLoading) {
       const playDescriptions = async () => {
+        // First play the welcome message in Portuguese
+        await playTutorDescription("Olá aluno, qual tutor você quer que te acompanhe nos seus estudos?");
+
+        // Then play each tutor's description
         for (const tutor of tutors) {
           const description = `${tutor.name}. ${tutor.style}`;
           await playTutorDescription(description);
