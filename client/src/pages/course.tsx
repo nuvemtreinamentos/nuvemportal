@@ -4,6 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, UserCircle2 } from "lucide-react";
 import type { Course, CoursePrompt, Tutor } from "@shared/schema";
+// Import tutor images
+import albertEinstein from "../../../attached_assets/albert einstein.jpg";
+import marieCurie from "../../../attached_assets/marie curie.jpg";
+
+// Map of tutor names to their image imports
+const tutorImages: Record<string, string> = {
+  "Albert Einstein": albertEinstein,
+  "Marie Curie": marieCurie
+};
 
 export default function CoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -69,7 +78,7 @@ export default function CoursePage() {
                   <CardHeader className="flex flex-col items-center text-center">
                     <Avatar className="h-32 w-32 mb-4">
                       <AvatarImage 
-                        src={tutor.profilePicUrl} 
+                        src={tutorImages[tutor.name]}
                         alt={tutor.name}
                       />
                       <AvatarFallback>
