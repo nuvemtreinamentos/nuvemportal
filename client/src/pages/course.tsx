@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Loader2, UserCircle2 } from "lucide-react";
 import type { Course, CoursePrompt, Tutor } from "@shared/schema";
 
 export default function CoursePage() {
@@ -55,18 +56,30 @@ export default function CoursePage() {
           <CardContent>
             {prompts?.map((prompt) => (
               <div key={prompt.id} className="mb-4">
-                <p>{prompt.prompt}</p>
+                <p className="text-muted-foreground">{prompt.prompt}</p>
               </div>
             ))}
-            
-            <div className="grid gap-4 md:grid-cols-2 mt-6">
+
+            <div className="grid gap-6 md:grid-cols-2 mt-8">
               {tutors?.map((tutor) => (
-                <Card key={tutor.id} className="cursor-pointer hover:bg-accent">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{tutor.name}</CardTitle>
+                <Card 
+                  key={tutor.id} 
+                  className="cursor-pointer hover:bg-accent transition-colors"
+                >
+                  <CardHeader className="flex flex-col items-center text-center">
+                    <Avatar className="h-32 w-32 mb-4">
+                      <AvatarImage 
+                        src={tutor.profilePicUrl} 
+                        alt={tutor.name}
+                      />
+                      <AvatarFallback>
+                        <UserCircle2 className="h-16 w-16" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <CardTitle className="text-xl">{tutor.name}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground">{tutor.style}</p>
+                    <p className="text-muted-foreground text-center">{tutor.style}</p>
                   </CardContent>
                 </Card>
               ))}
