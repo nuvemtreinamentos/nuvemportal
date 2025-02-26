@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, UserCircle2 } from "lucide-react";
 import type { Course, CoursePrompt, Tutor } from "@shared/schema";
+import { useEffect } from "react";
 // Import tutor images
 import albertEinstein from "../../../attached_assets/albert einstein.jpg";
 import marieCurie from "../../../attached_assets/marie curie.jpg";
@@ -13,6 +14,36 @@ const tutorImages: Record<string, string> = {
   "Albert Einstein": albertEinstein,
   "Marie Curie": marieCurie
 };
+
+async function playTutorDescription(text: string) {
+  try {
+    const response = await fetch('/api/speech', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) throw new Error('Failed to generate speech');
+
+    const audioData = await response.arrayBuffer();
+    const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+
+    return new Promise((resolve) => {
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        resolve(true);
+      };
+      audio.play();
+    });
+  } catch (error) {
+    console.error('Error playing tutor description:', error);
+    return Promise.resolve(false);
+  }
+}
 
 export default function CoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -31,6 +62,18 @@ export default function CoursePage() {
     queryKey: ['/api/tutors'],
     retry: false,
   });
+
+  useEffect(() => {
+    if (tutors && !tutorsLoading) {
+      const playDescriptions = async () => {
+        for (const tutor of tutors) {
+          const description = `${tutor.name}. ${tutor.style}`;
+          await playTutorDescription(description);
+        }
+      };
+      playDescriptions();
+    }
+  }, [tutors, tutorsLoading]);
 
   if (courseLoading || promptsLoading || tutorsLoading) {
     return (
