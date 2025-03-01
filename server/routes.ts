@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
 import { processUserInput, textToSpeech } from "./openai";
-import { insertConversationSchema, context } from "@shared/schema";
+import { insertConversationSchema, context, coursePrompts } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth } from "./auth";
 import { createPixPayment } from "./stripe";
@@ -203,6 +203,46 @@ export async function registerRoutes(app: Express) {
       });
 
       res.json(paymentDetails);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // New endpoint to process course prompt with LLM
+  app.post("/api/process-prompt", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { contextId } = req.body;
+
+      // Get the context and its associated prompt
+      const [ctx] = await db
+        .select()
+        .from(context)
+        .where(eq(context.id, contextId));
+
+      if (!ctx) {
+        return res.status(404).json({ error: "Context not found" });
+      }
+
+      const [prompt] = await db
+        .select()
+        .from(coursePrompts)
+        .where(eq(coursePrompts.id, ctx.coursePromptId));
+
+      if (!prompt) {
+        return res.status(404).json({ error: "Course prompt not found" });
+      }
+
+      // Process the prompt with LLM
+      const result = await processUserInput(prompt.prompt);
+
+      // Convert LLM response to speech
+      const audioBuffer = await textToSpeech(result.response);
+
+      res.json({
+        text: result.response,
+        audio: Buffer.from(audioBuffer).toString('base64')
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: message });

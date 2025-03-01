@@ -45,6 +45,39 @@ async function playTutorDescription(text: string) {
   }
 }
 
+async function processAndPlayPrompt(contextId: string) {
+  try {
+    const response = await fetch('/api/process-prompt', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ contextId }),
+    });
+
+    if (!response.ok) throw new Error('Failed to process prompt');
+
+    const data = await response.json();
+
+    // Convert base64 audio to blob
+    const audioBuffer = Buffer.from(data.audio, 'base64');
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+
+    return new Promise((resolve) => {
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        resolve(true);
+      };
+      audio.play();
+    });
+  } catch (error) {
+    console.error('Error processing and playing prompt:', error);
+    return Promise.resolve(false);
+  }
+}
+
 export default function CoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
   const queryClient = useQueryClient();
@@ -127,7 +160,10 @@ export default function CoursePage() {
       if (prompts && prompts.length > 1) {
         const nextPrompt = prompts[1];
         // Create new context for next prompt
-        await createContextMutation.mutateAsync(nextPrompt.id);
+        const newContext = await createContextMutation.mutateAsync(nextPrompt.id);
+
+        // Process and play the new prompt
+        await processAndPlayPrompt(newContext.id);
       }
     } catch (error) {
       console.error('Error handling tutor selection:', error);
@@ -173,14 +209,14 @@ export default function CoursePage() {
 
             <div className="grid gap-6 md:grid-cols-2 mt-8">
               {tutors?.map((tutor) => (
-                <Card 
-                  key={tutor.id} 
+                <Card
+                  key={tutor.id}
                   className="cursor-pointer hover:bg-accent transition-colors"
                   onClick={() => handleTutorSelect(tutor.id)}
                 >
                   <CardHeader className="flex flex-col items-center text-center">
                     <Avatar className="h-32 w-32 mb-4">
-                      <AvatarImage 
+                      <AvatarImage
                         src={tutorImages[tutor.name]}
                         alt={tutor.name}
                       />
