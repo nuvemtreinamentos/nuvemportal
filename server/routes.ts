@@ -2,10 +2,12 @@ import type { Express, Request, Response } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
 import { processUserInput, textToSpeech } from "./openai";
-import { insertConversationSchema } from "@shared/schema";
+import { insertConversationSchema, context } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth } from "./auth";
 import { createPixPayment } from "./stripe";
+import { eq } from 'drizzle-orm';
+import { db } from './db';
 
 export async function registerRoutes(app: Express) {
   // Set up authentication routes
@@ -55,10 +57,31 @@ export async function registerRoutes(app: Express) {
   });
 
   // Context endpoints
+  app.get("/api/context/current", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const contexts = await db
+        .select()
+        .from(context)
+        .where(eq(context.studentId, req.user!.id))
+        .orderBy(context.createdAt, "desc")
+        .limit(1);
+
+      if (contexts.length === 0) {
+        return res.status(404).json({ error: "No context found" });
+      }
+
+      res.json(contexts[0]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.post("/api/context", requireAuth, async (req: Request, res: Response) => {
     try {
       const context = await storage.createContext({
         coursePromptId: req.body.coursePromptId,
+        studentId: req.user!.id,
         ack: false,
       });
       res.json(context);

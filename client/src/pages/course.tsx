@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -47,6 +47,7 @@ async function playTutorDescription(text: string) {
 
 export default function CoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const queryClient = useQueryClient();
 
   const { data: course, isLoading: courseLoading } = useQuery<Course>({
     queryKey: [`/api/courses/${courseId}`],
@@ -63,6 +64,40 @@ export default function CoursePage() {
     retry: false,
   });
 
+  // Create context mutation
+  const createContextMutation = useMutation({
+    mutationFn: async (coursePromptId: string) => {
+      const response = await fetch('/api/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coursePromptId }),
+      });
+      if (!response.ok) throw new Error('Failed to create context');
+      return response.json();
+    },
+  });
+
+  // Update context mutation
+  const updateContextMutation = useMutation({
+    mutationFn: async (contextId: string) => {
+      const response = await fetch(`/api/context/${contextId}/ack`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new Error('Failed to update context');
+      return response.json();
+    },
+  });
+
+  // Effect to create initial context when course is loaded
+  useEffect(() => {
+    if (prompts?.length && !promptsLoading) {
+      const firstPrompt = prompts[0];
+      createContextMutation.mutate(firstPrompt.id);
+    }
+  }, [prompts, promptsLoading]);
+
+  // Effect for audio playback
   useEffect(() => {
     if (tutors && !tutorsLoading) {
       const playDescriptions = async () => {
@@ -78,6 +113,26 @@ export default function CoursePage() {
       playDescriptions();
     }
   }, [tutors, tutorsLoading]);
+
+  const handleTutorSelect = async (tutorId: string) => {
+    try {
+      // Get the current context
+      const response = await fetch('/api/context/current');
+      const currentContext = await response.json();
+
+      // Mark current context as acknowledged
+      await updateContextMutation.mutateAsync(currentContext.id);
+
+      // Get next prompt
+      if (prompts && prompts.length > 1) {
+        const nextPrompt = prompts[1];
+        // Create new context for next prompt
+        await createContextMutation.mutateAsync(nextPrompt.id);
+      }
+    } catch (error) {
+      console.error('Error handling tutor selection:', error);
+    }
+  };
 
   if (courseLoading || promptsLoading || tutorsLoading) {
     return (
@@ -121,6 +176,7 @@ export default function CoursePage() {
                 <Card 
                   key={tutor.id} 
                   className="cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => handleTutorSelect(tutor.id)}
                 >
                   <CardHeader className="flex flex-col items-center text-center">
                     <Avatar className="h-32 w-32 mb-4">

@@ -40,6 +40,7 @@ export const coursePrompts = pgTable("course_prompts", {
 export const context = pgTable("context", {
   id: uuid("uid").defaultRandom().primaryKey(),
   coursePromptId: uuid("course_prompt_id").references(() => coursePrompts.id),
+  studentId: serial("student_id").references(() => users.id),
   ack: boolean("ack").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -68,6 +69,10 @@ export const contextRelations = relations(context, ({ one }) => ({
   coursePrompt: one(coursePrompts, {
     fields: [context.coursePromptId],
     references: [coursePrompts.id],
+  }),
+  student: one(users, {
+    fields: [context.studentId],
+    references: [users.id],
   }),
 }));
 
