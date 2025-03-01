@@ -47,6 +47,7 @@ async function playTutorDescription(text: string) {
 
 async function processAndPlayPrompt(contextId: string) {
   try {
+    console.log('Processing prompt for context:', contextId);
     const response = await fetch('/api/process-prompt', {
       method: 'POST',
       headers: {
@@ -55,9 +56,12 @@ async function processAndPlayPrompt(contextId: string) {
       body: JSON.stringify({ contextId }),
     });
 
-    if (!response.ok) throw new Error('Failed to process prompt');
+    if (!response.ok) {
+      throw new Error(`Failed to process prompt: ${response.statusText}`);
+    }
 
     const data = await response.json();
+    console.log('Received response:', data);
 
     // Convert base64 audio to blob
     const audioBuffer = Buffer.from(data.audio, 'base64');
@@ -70,7 +74,15 @@ async function processAndPlayPrompt(contextId: string) {
         URL.revokeObjectURL(audioUrl);
         resolve(true);
       };
-      audio.play();
+      audio.onerror = (e) => {
+        console.error('Audio playback error:', e);
+        URL.revokeObjectURL(audioUrl);
+        resolve(false);
+      };
+      audio.play().catch(error => {
+        console.error('Error playing audio:', error);
+        resolve(false);
+      });
     });
   } catch (error) {
     console.error('Error processing and playing prompt:', error);
@@ -149,18 +161,29 @@ export default function CoursePage() {
 
   const handleTutorSelect = async (tutorId: string) => {
     try {
+      console.log('Tutor selected:', tutorId);
+
       // Get the current context
       const response = await fetch('/api/context/current');
+      if (!response.ok) {
+        throw new Error('Failed to fetch current context');
+      }
+
       const currentContext = await response.json();
+      console.log('Current context:', currentContext);
 
       // Mark current context as acknowledged
       await updateContextMutation.mutateAsync(currentContext.id);
+      console.log('Context acknowledged');
 
       // Get next prompt
       if (prompts && prompts.length > 1) {
         const nextPrompt = prompts[1];
+        console.log('Creating context for next prompt:', nextPrompt.id);
+
         // Create new context for next prompt
         const newContext = await createContextMutation.mutateAsync(nextPrompt.id);
+        console.log('New context created:', newContext);
 
         // Process and play the new prompt
         await processAndPlayPrompt(newContext.id);

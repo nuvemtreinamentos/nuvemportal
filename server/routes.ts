@@ -6,7 +6,7 @@ import { insertConversationSchema, context, coursePrompts } from "@shared/schema
 import { z } from "zod";
 import { setupAuth } from "./auth";
 import { createPixPayment } from "./stripe";
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from './db';
 
 export async function registerRoutes(app: Express) {
@@ -79,12 +79,12 @@ export async function registerRoutes(app: Express) {
 
   app.post("/api/context", requireAuth, async (req: Request, res: Response) => {
     try {
-      const context = await storage.createContext({
+      const contextData = await storage.createContext({
         coursePromptId: req.body.coursePromptId,
         studentId: req.user!.id,
         ack: false,
       });
-      res.json(context);
+      res.json(contextData);
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: message });
@@ -209,41 +209,52 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  // New endpoint to process course prompt with LLM
+  // Updated endpoint to process course prompt with LLM
   app.post("/api/process-prompt", requireAuth, async (req: Request, res: Response) => {
     try {
       const { contextId } = req.body;
+      console.log('Processing prompt for context:', contextId);
 
-      // Get the context and its associated prompt
-      const [ctx] = await db
-        .select()
+      // Get the context and join with course_prompts to get the prompt text
+      const result = await db
+        .select({
+          context: context,
+          prompt: coursePrompts.prompt
+        })
         .from(context)
-        .where(eq(context.id, contextId));
+        .innerJoin(
+          coursePrompts,
+          eq(context.coursePromptId, coursePrompts.id)
+        )
+        .where(
+          and(
+            eq(context.id, contextId),
+            eq(context.studentId, req.user!.id)
+          )
+        );
 
-      if (!ctx) {
-        return res.status(404).json({ error: "Context not found" });
+      if (!result.length) {
+        console.error('No context or prompt found for:', { contextId, userId: req.user!.id });
+        return res.status(404).json({ error: "Context or prompt not found" });
       }
 
-      const [prompt] = await db
-        .select()
-        .from(coursePrompts)
-        .where(eq(coursePrompts.id, ctx.coursePromptId));
-
-      if (!prompt) {
-        return res.status(404).json({ error: "Course prompt not found" });
-      }
+      const { prompt } = result[0];
+      console.log('Found prompt:', prompt);
 
       // Process the prompt with LLM
-      const result = await processUserInput(prompt.prompt);
+      const llmResult = await processUserInput(prompt);
+      console.log('LLM processing complete');
 
       // Convert LLM response to speech
-      const audioBuffer = await textToSpeech(result.response);
+      const audioBuffer = await textToSpeech(llmResult.response);
+      console.log('Text-to-speech conversion complete');
 
       res.json({
-        text: result.response,
+        text: llmResult.response,
         audio: Buffer.from(audioBuffer).toString('base64')
       });
     } catch (error) {
+      console.error('Error in process-prompt:', error);
       const message = error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: message });
     }

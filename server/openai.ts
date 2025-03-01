@@ -50,94 +50,51 @@ export async function processUserInput(input: string): Promise<{
   language?: string;
   imageUrl?: string;
 }> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: `Você é um tutor de IA especializado em programação e inglês.
-        Responda sempre em português do Brasil.
-        Quando os usuários solicitarem visualizações ou diagramas, use palavras-chave
-        para encontrar imagens relevantes em nossa biblioteca.
-
-        Responda no seguinte formato JSON:
-        {
-          "type": "code" | "image" | "text",
-          "content": "sua resposta aqui",
-          "language": "linguagem de programação (apenas para código)",
-          "keywords": ["palavra1", "palavra2"] (apenas para imagens, use palavras-chave em inglês ou português)
-        }
-
-        Para imagens, use palavras-chave em inglês ou português, por exemplo:
-        - Para carros: ["car", "vehicle", "automobile"] ou ["carro", "veículo", "automóvel"]
-        - Para computadores: ["computer", "laptop"] ou ["computador", "notebook"]
-        - Para livros: ["book", "reading"] ou ["livro", "leitura"]
-        - Para código: ["code", "programming"] ou ["código", "programação"]
-
-        Diretrizes:
-        - Para perguntas de programação: type="code", inclua o código em content, especifique a language
-        - Para conceitos visuais: type="image", forneça explicação em content e keywords relevantes
-        - Para outras perguntas: type="text", forneça explicação em content
-        - Mantenha as respostas concisas e focadas`
-      },
-      { role: "user", content: input }
-    ],
-    response_format: { type: "json_object" }
-  });
-
-  const content = response.choices[0].message.content;
-  if (!content) {
-    throw new Error("Sem resposta da OpenAI");
-  }
-
   try {
-    const result = JSON.parse(content);
-    console.log('Parsed OpenAI response:', result);
+    console.log('Processing user input:', input);
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: `Você é um tutor de IA especializado em programação e inglês.
+          Responda sempre em português do Brasil de forma clara e didática.`
+        },
+        { role: "user", content: input }
+      ]
+    });
 
-    if (!result.type || !result.content ||
-        !["code", "image", "text"].includes(result.type)) {
-      throw new Error("Formato de resposta inválido da OpenAI");
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("Empty response from OpenAI");
     }
 
-    let output = {
-      response: result.content,
-      type: result.type as "code" | "image" | "text"
+    console.log('OpenAI response:', content);
+
+    return {
+      response: content,
+      type: "text"
     };
-
-    if (result.type === "code" && result.language) {
-      return {
-        ...output,
-        codeSnippet: result.content,
-        language: result.language
-      };
-    }
-
-    if (result.type === "image") {
-      if (!result.keywords || !Array.isArray(result.keywords)) {
-        result.keywords = ['placeholder'];
-      }
-      console.log('Looking for image with keywords:', result.keywords);
-      const imageUrl = await findStoredImage(result.keywords);
-      console.log('Found image URL:', imageUrl);
-
-      return {
-        ...output,
-        imageUrl
-      };
-    }
-
-    return output;
   } catch (error) {
-    throw new Error(`Falha ao processar resposta da OpenAI: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    console.error('Error in processUserInput:', error);
+    throw error;
   }
 }
 
 export async function textToSpeech(text: string): Promise<ArrayBuffer> {
-  const response = await openai.audio.speech.create({
-    model: "tts-1",
-    voice: "alloy",
-    input: text
-  });
+  try {
+    console.log('Converting text to speech:', text);
+    const response = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: "alloy",
+      input: text
+    });
 
-  return await response.arrayBuffer();
+    const buffer = await response.arrayBuffer();
+    console.log('Successfully generated speech');
+    return buffer;
+  } catch (error) {
+    console.error('Error in textToSpeech:', error);
+    throw error;
+  }
 }
