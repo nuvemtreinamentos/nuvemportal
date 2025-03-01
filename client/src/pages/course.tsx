@@ -63,9 +63,13 @@ async function processAndPlayPrompt(contextId: string) {
     const data = await response.json();
     console.log('Received response:', data);
 
-    // Convert base64 audio to blob
-    const audioBuffer = Buffer.from(data.audio, 'base64');
-    const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+    // Convert base64 audio to ArrayBuffer
+    const binaryString = atob(data.audio);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    const audioBlob = new Blob([bytes.buffer], { type: 'audio/mpeg' });
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
 
